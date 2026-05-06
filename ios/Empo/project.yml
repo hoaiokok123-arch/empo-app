@@ -290,6 +290,7 @@ targets:
       - path: src
         type: group
       - path: PrivacyInfo.xcprivacy
+      - path: Assets.xcassets
       - path: Assets.bundle
         type: folder
         buildPhase: resources
@@ -309,6 +310,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: sh.mateo.empo
         INFOPLIST_FILE: $(PROJECT_DIR)/Info.plist
         PRODUCT_NAME: Empo
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.0"
