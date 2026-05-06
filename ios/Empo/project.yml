@@ -394,3 +394,18 @@ targets:
           - -lEGL_static
           - -lGLESv2_static
     dependencies: []
+schemes:
+  Empo:
+    build:
+      targets:
+        Empo: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
