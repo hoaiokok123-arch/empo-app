@@ -584,6 +584,16 @@ $(LIBDIR)/mkxp30-merged.o: $(LIBDIR)/libruby.3.0-static.a \
 	@# EXCEPT the wrapper's single versioned entry point. We get the
 	@# binding-internals by nm-ing the per-version binding objects;
 	@# the wrapper's `_mkxp_get_script_binding_30` is filtered out.
+	@#
+	@# C++ RTTI / typeinfo / vtable / ABI runtime symbols
+	@# (`__ZTI*`, `__ZTS*`, `__ZTV*`, `___cxa_*`) are also kept
+	@# externally visible. Hiding them breaks exception
+	@# propagation: a `throw Exception(...)` in the merged.o never
+	@# matches a `catch (const Exception&)` because libc++abi's
+	@# typeinfo lookup needs the symbols to retain default
+	@# visibility. Without this, missing-asset code paths crash
+	@# the app via `__cxa_throw -> failed_throw -> abort` instead
+	@# of being converted to Ruby exceptions by `RB_METHOD_GUARD`.
 	${PWD}/tools/generate-ruby-unexports.sh \
 	    $(LIBDIR)/libruby.3.0-static.a $(LIBDIR)/libruby.3.0-ext.a \
 	    > $(BUILD_PREFIX)/ruby30-unexports.txt
@@ -591,6 +601,7 @@ $(LIBDIR)/mkxp30-merged.o: $(LIBDIR)/libruby.3.0-static.a \
 	    | awk '/^[0-9a-f]+ [TDSR] /{print $$3}' \
 	    | sort -u \
 	    | grep -v '^_mkxp_get_script_binding_30$$' \
+	    | grep -vE '^__Z(TI|TS|TV)|^___cxa_' \
 	    >> $(BUILD_PREFIX)/ruby30-unexports.txt
 	@echo "[mkxp30] Merging via ld -r..."
 	@LD=$$(xcrun --sdk $(SDK) -f ld); \
@@ -685,6 +696,7 @@ $(LIBDIR)/mkxp31-merged.o: $(LIBDIR)/libruby.3.1-static.a \
 	    | awk '/^[0-9a-f]+ [TDSR] /{print $$3}' \
 	    | sort -u \
 	    | grep -v '^_mkxp_get_script_binding_31$$' \
+	    | grep -vE '^__Z(TI|TS|TV)|^___cxa_' \
 	    >> $(BUILD_PREFIX)/ruby31-unexports.txt.raw
 	@# Carve out symbols that need to remain externally visible:
 	@# main.cpp (Xcode-compiled) sets the syntax-transform target
@@ -831,6 +843,7 @@ $(LIBDIR)/mkxp19-merged.o: $(LIBDIR)/libruby19-static.a \
 	    | awk '/^[0-9a-f]+ [TDSR] /{print $$3}' \
 	    | sort -u \
 	    | grep -v '^_mkxp_get_script_binding_19$$' \
+	    | grep -vE '^__Z(TI|TS|TV)|^___cxa_' \
 	    >> $(BUILD_PREFIX)/ruby19-unexports.txt
 	@echo "[mkxp19] Merging via ld -r..."
 	@LD=$$(xcrun --sdk $(SDK) -f ld); \
@@ -880,6 +893,7 @@ $(LIBDIR)/mkxp18-merged.o: $(LIBDIR)/libruby18-static.a \
 	    | awk '/^[0-9a-f]+ [TDSR] /{print $$3}' \
 	    | sort -u \
 	    | grep -v '^_mkxp_get_script_binding_18$$' \
+	    | grep -vE '^__Z(TI|TS|TV)|^___cxa_' \
 	    >> $(BUILD_PREFIX)/ruby18-unexports.txt
 	@echo "[mkxp18] Merging via ld -r..."
 	@LD=$$(xcrun --sdk $(SDK) -f ld); \
