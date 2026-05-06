@@ -208,11 +208,15 @@ private struct SplashView: View {
             // Logo + wordmark. During the disclaimer phase these fade/
             // blur/scale out but the splash background stays. Same
             // treatment on the full exit.
-            VStack(spacing: Spacing.lg) {
+            VStack(spacing: Spacing.xl) {
+                Image(.empoMark)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 96, height: 96)
+                    .foregroundStyle(.white)
                 Text(AppInfo.name)
                     .font(AppFont.wordmark)
                     .foregroundStyle(.white)
-                    .heroTitleShadow()
             }
             .blur(radius: logoHidden ? 10 : 0)
             .scaleEffect(logoHidden ? 0.8 : (entered ? 1 : 0.8))
