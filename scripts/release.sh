@@ -66,6 +66,19 @@ if [[ ! -d "$APP_PATH" ]]; then
     exit 1
 fi
 
+# Ad-hoc sign with our entitlements file so the Mach-O has an
+# entitlements blob embedded. Sideloaders that resign the IPA
+# (AltStore, Sideloadly, ESign) read this blob as their template;
+# without it some resigners (notably ESign) synthesize an
+# incomplete blob that breaks the document picker's sandbox-
+# extension grants on picked URLs. iOS won't trust the ad-hoc
+# signature directly, but every sideloader re-signs over it with
+# the user's cert before installing.
+echo "==> ad-hoc signing with entitlements"
+codesign --force --sign - \
+    --entitlements "$PROJECT_DIR/Empo.entitlements" \
+    "$APP_PATH"
+
 mkdir -p "$IPA_DIR/Payload"
 cp -R "$APP_PATH" "$IPA_DIR/Payload/Empo.app"
 IPA_NAME="Empo-${VERSION}-unsigned.ipa"
