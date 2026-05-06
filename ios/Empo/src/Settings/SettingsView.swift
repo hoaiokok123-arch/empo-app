@@ -184,19 +184,41 @@ struct SettingsView: View {
                     .tint(.primary)
 
                     Link(
-                        destination: URL(string: "https://github.com/mateo-m/empo-app/issues")
+                        destination: URL(string: "https://github.com/mateo-m/empo-app")
                             ?? URL.empoHomepage
                     ) {
                         Label {
                             HStack {
-                                Text("Report an issue")
+                                Text("GitHub")
                                 Spacer()
                                 Image(systemName: "arrow.up.forward")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
                         } icon: {
-                            Image(systemName: "ladybug")
+                            Image(.gitHubMark)
+                                .resizable()
+                                .scaledToFit()
+                        }
+                    }
+                    .tint(.primary)
+
+                    Link(
+                        destination: URL(string: "https://twitter.com/gridplay_")
+                            ?? URL.empoHomepage
+                    ) {
+                        Label {
+                            HStack {
+                                Text("Twitter")
+                                Spacer()
+                                Image(systemName: "arrow.up.forward")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(.twitterMark)
+                                .resizable()
+                                .scaledToFit()
                         }
                     }
                     .tint(.primary)
