@@ -208,26 +208,6 @@ enum RubyVersionDetection {
         return 31
     }
 
-    /// Maps a "shipped" Ruby version (what the game was authored
-    /// against) to the runtime version we'll actually dispatch on.
-    /// On iOS arm64 our actual Ruby 1.8 / 1.9 builds have a class
-    /// of issues that the 3.1 + syntax-transform path doesn't:
-    /// PAC verification on fiber switching, font-rendering edge
-    /// cases on iOS 26+'s xzone allocator, and generally less
-    /// exercise paths through the engine. 3.1 with the parser
-    /// patches handles legacy grammar reliably; the 1.x dispatch
-    /// exists for completeness but isn't the safe default.
-    ///
-    /// Users who need real 1.x semantics can still override per
-    /// game in `GameSettings.rubyVersionOverride`; that bypasses
-    /// this remapping.
-    static func dispatchVersion(forShipped shipped: Int) -> Int {
-        switch shipped {
-        case 18, 19: return 31
-        default: return shipped
-        }
-    }
-
     /// Returns the Ruby version implied by the `Scripts.*` file
     /// extension found at the project root or under `Data/`.
     /// `.rxdata` → 18, `.rvdata` / `.rvdata2` → 19. nil if no

@@ -87,30 +87,16 @@ class AppState {
         // Multi-Ruby (Phase D, MULTI_RUBY_PLAN.md) per-game dispatch.
         // Precedence:
         //   1. settings.rubyVersionOverride (manual user pick in
-        //      GameSettingsView's Ruby version picker) - honored
-        //      verbatim, since the user knows what they want.
+        //      GameSettingsView's Ruby version picker)
         //   2. metadata.rubyVersion (auto-detected at import time
-        //      by RubyVersionDetection) - fed through
-        //      `dispatchVersion(forShipped:)` so 1.8/1.9 are
-        //      remapped to 3.1+syntax-transform on iOS, where
-        //      our 1.x builds have known issues (PAC fiber
-        //      switching corrupts the heap, surfaces as malloc
-        //      traps in font rendering and elsewhere).
+        //      by RubyVersionDetection)
         //   3. MKXP_RUBY_UNSET → engine falls through to its
         //      legacy direct-link 3.1 path. Hit when neither
         //      override nor detection has tagged a value, e.g.
         //      games imported before this field existed if the
         //      backfill hasn't run yet.
         let metadata = GameMetadata.load(from: container)
-        let rubyVersionRaw: Int? = {
-            if let override = settings.rubyVersionOverride {
-                return override
-            }
-            if let shipped = metadata.rubyVersion {
-                return RubyVersionDetection.dispatchVersion(forShipped: shipped)
-            }
-            return nil
-        }()
+        let rubyVersionRaw = settings.rubyVersionOverride ?? metadata.rubyVersion
         let rubyVer: MKXPRubyVersion = {
             switch rubyVersionRaw {
             case 18: return MKXP_RUBY_18

@@ -356,12 +356,6 @@ struct GameInfoView: View {
     /// out, or before the library backfill task ran).
     /// Returns nil when no signal is available; the caller falls
     /// back to a no-filter scan.
-    ///
-    /// User overrides are reported verbatim (the user picked that
-    /// version on purpose). Auto-detected values are routed
-    /// through `dispatchVersion(forShipped:)` so the UI matches
-    /// what the engine actually loads - 1.x-shipped games run on
-    /// 3.1+syntax-transform on iOS to dodge the PAC fiber issue.
     private func rubyMajorMinorForGame() -> String? {
         // Per-game override wins.
         if let container = game.container {
@@ -370,18 +364,14 @@ struct GameInfoView: View {
                 return rubyCodeToMajorMinor(override)
             }
         }
-        // Detector's persisted result, mapped through the dispatch
-        // override (1.8 / 1.9 -> 3.1 on iOS).
+        // Detector's persisted result.
         if let v = metadata.rubyVersion {
-            return rubyCodeToMajorMinor(RubyVersionDetection.dispatchVersion(forShipped: v))
+            return rubyCodeToMajorMinor(v)
         }
         // Fall back to RGSS-derived if the detector hasn't run yet.
-        // Same dispatch mapping applies.
         switch rgssVersion {
-        case 1, 2:
-            return rubyCodeToMajorMinor(RubyVersionDetection.dispatchVersion(forShipped: 18))
-        case 3:
-            return rubyCodeToMajorMinor(RubyVersionDetection.dispatchVersion(forShipped: 19))
+        case 1, 2: return "1.8"
+        case 3: return "1.9"
         default: return nil
         }
     }
