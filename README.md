@@ -12,15 +12,15 @@ The name's from *emporos*, ancient Greek for a traveler riding on someone else's
 
 ## Demo
 
-Full walkthrough from splash and disclaimer through the library into Pokemon Z gameplay:
+Import a game and play it:
 
 <video src="https://github.com/mateo-m/empo-app/raw/main/docs/media/demo.mp4" controls width="600"></video>
 
-The library and its hero zoom transition into an active session:
+Library view:
 
 <video src="https://github.com/mateo-m/empo-app/raw/main/docs/media/demo-library.mp4" controls width="600"></video>
 
-In-engine rendering across a cinematic intro, a battle, and free-roam overworld:
+In-game battle:
 
 | Cinematic | Battle | Overworld |
 | :-: | :-: | :-: |
