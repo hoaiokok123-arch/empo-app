@@ -151,20 +151,81 @@ enum RubyVersionDetection {
         // Script grammar sniff. Decodes Scripts.{rxdata,rvdata,
         // rvdata2} (Marshal + Zlib) and looks for tokens that only
         // parse on Ruby 3.x.
+        switch RubyScriptGrammarSniffer.sniff(gameDirectory: gameDirectory) {
+        case .modern:
+            // Definitive: modern grammar can't run on 1.8/1.9.
+            return 31
+        case .legacy:
+            // Successfully read source, no modern tokens. Use the
+            // data file extension as the prior to choose 18 vs 19.
+            if let scriptVer = rubyVersionFromScriptExtension(
+                at: gameDirectory, fm: fm
+            ) {
+                return scriptVer
+            }
+        // Scripts file existed (sniffer found one) but
+        // extension lookup failed (shouldn't happen). Fall
+        // through to archive sniff.
+
+        case .inconclusive:
+            // Couldn't read scripts (encrypted archive, missing
+            // file, parse error). Continue to archive/INI signals.
+            break
+        }
+
+        // Encrypted RGSS archive at project root. Scripts live
+        // inside the archive; sniffer can't read them without
+        // decrypting first. Trust the extension as the engine
+        // version.
         //
-        // Note: regardless of grammar (modern vs legacy), default
-        // to Ruby 3.1. Our actual 1.8/1.9 builds on iOS arm64 have
-        // a class of issues that 3.1+syntax-transform doesn't:
-        // PAC verification on fiber switching, font-rendering edge
-        // cases on iOS 26+'s xzone allocator, and generally less
-        // exercise paths through the engine. 3.1 with the
-        // syntax-transform parser patches handles legacy grammar
-        // (1.8 / 1.9) reliably; the 1.x dispatch exists primarily
-        // for desktop cases or future tuning, not as the default.
-        // Users who need real 1.x semantics can override via
-        // GameSettings.
-        _ = RubyScriptGrammarSniffer.sniff(gameDirectory: gameDirectory)
+        // .rgssad → 1.8 (RGSS1 / RPG Maker XP / Ruby 1.8.1)
+        // .rgss2a → 1.9 (RGSS2 / RPG Maker VX / Ruby 1.9.2)
+        // .rgss3a → 1.9 (RGSS3 / RPG Maker VX Ace / Ruby 1.9.2)
+        if let archiveExt = topLevelRgssArchiveExtension(at: gameDirectory, fm: fm) {
+            switch archiveExt {
+            case "rgssad": return 18
+            case "rgss2a": return 19
+            case "rgss3a": return 19
+            default: break
+            }
+        }
+
+        // Game.ini Library= field. RPG Maker stamps the RGSS DLL
+        // name into Game.ini; that name encodes the engine version
+        // in its three-digit suffix.
+        if let libraryRGSS = rgssLibraryMajor(at: gameDirectory, fm: fm) {
+            switch libraryRGSS {
+            case 1: return 18
+            case 2, 3: return 19
+            default: break
+            }
+        }
+
+        // Nothing detectable. Best-guess modern: most projects
+        // with no readable scripts, no archive, and no Game.ini
+        // are loose-script modern forks that shipped only Maps
+        // and Items.
         return 31
+    }
+
+    /// Maps a "shipped" Ruby version (what the game was authored
+    /// against) to the runtime version we'll actually dispatch on.
+    /// On iOS arm64 our actual Ruby 1.8 / 1.9 builds have a class
+    /// of issues that the 3.1 + syntax-transform path doesn't:
+    /// PAC verification on fiber switching, font-rendering edge
+    /// cases on iOS 26+'s xzone allocator, and generally less
+    /// exercise paths through the engine. 3.1 with the parser
+    /// patches handles legacy grammar reliably; the 1.x dispatch
+    /// exists for completeness but isn't the safe default.
+    ///
+    /// Users who need real 1.x semantics can still override per
+    /// game in `GameSettings.rubyVersionOverride`; that bypasses
+    /// this remapping.
+    static func dispatchVersion(forShipped shipped: Int) -> Int {
+        switch shipped {
+        case 18, 19: return 31
+        default: return shipped
+        }
     }
 
     /// Returns the Ruby version implied by the `Scripts.*` file
