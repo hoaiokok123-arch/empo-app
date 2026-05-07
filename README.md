@@ -1,8 +1,8 @@
-<p align="center"><img src="docs/media/empo-icon.png" alt="Empo icon" width="160" /></p>
+<p align="center"><a href="https://empo.mateo.sh"><img src="docs/media/empo-icon.png" alt="Empo icon" width="160" /></a></p>
 
-# Empo
+# <p align="center"><a href="https://empo.mateo.sh">Empo</a></p>
 
-> Run RPG Maker games on iPhone and iPad.
+> <p align="center">Run RPG Maker games on iPhone and iPad.</p>
 
 <p align="center">
   <a href="#license"><img alt="License" src="https://img.shields.io/badge/license-GPLv2%2B-blue.svg" /></a>
