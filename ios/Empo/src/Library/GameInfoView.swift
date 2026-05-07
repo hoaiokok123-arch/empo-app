@@ -356,32 +356,22 @@ struct GameInfoView: View {
     /// out, or before the library backfill task ran).
     /// Returns nil when no signal is available; the caller falls
     /// back to a no-filter scan.
-    ///
-    /// User overrides are reported verbatim (the user picked that
-    /// version on purpose). Auto-detected values are routed
-    /// through `dispatchVersion(forShipped:)` so the UI matches
-    /// what the engine actually loads - 1.x-shipped games run on
-    /// 3.1+syntax-transform on iOS to dodge the PAC fiber issue.
     private func rubyMajorMinorForGame() -> String? {
         // Per-game override wins.
         if let container = game.container {
-            let stateDir = container.empoStateURL
-            if let override = GameSettings.load(from: stateDir).rubyVersionOverride {
+            let settings = GameSettings.load(from: container.empoStateURL)
+            if let override = settings.rubyVersionOverride {
                 return rubyCodeToMajorMinor(override)
             }
         }
-        // Detector's persisted result, mapped through the dispatch
-        // override (1.8 / 1.9 -> 3.1 on iOS).
+        // Detector's persisted result.
         if let v = metadata.rubyVersion {
-            return rubyCodeToMajorMinor(RubyVersionDetection.dispatchVersion(forShipped: v))
+            return rubyCodeToMajorMinor(v)
         }
         // Fall back to RGSS-derived if the detector hasn't run yet.
-        // Same dispatch mapping applies.
         switch rgssVersion {
-        case 1, 2:
-            return rubyCodeToMajorMinor(RubyVersionDetection.dispatchVersion(forShipped: 18))
-        case 3:
-            return rubyCodeToMajorMinor(RubyVersionDetection.dispatchVersion(forShipped: 19))
+        case 1, 2: return "1.8"
+        case 3: return "1.9"
         default: return nil
         }
     }
@@ -390,8 +380,10 @@ struct GameInfoView: View {
         switch code {
         case 18: return "1.8"
         case 19: return "1.9"
-        case 30: return "3.0"
-        case 31: return "3.1"
+        // 30 may appear in old metadata.json from when a native
+        // 3.0 binding shipped. The dispatcher routes 30 to the
+        // 3.1 runtime so report 3.1 to match the engine state.
+        case 30, 31: return "3.1"
         default: return nil
         }
     }

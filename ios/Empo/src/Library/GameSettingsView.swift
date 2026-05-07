@@ -3,7 +3,7 @@ import SwiftUI
 /// Per-game Ruby interpreter version selection exposed in the
 /// Game Settings sheet. Maps to `GameSettings.rubyVersionOverride`:
 ///   auto -> nil (use auto-detection from `metadata.rubyVersion`)
-///   v18 / v19 / v30 / v31 -> force that interpreter version
+///   v18 / v19 / v31 -> force that interpreter version
 ///
 /// Detection lives in `RubyVersionDetection` and runs at import
 /// time; this picker is the manual escape hatch when it misses.
@@ -11,7 +11,6 @@ enum RubyVersionPick: String, CaseIterable, Hashable {
     case auto
     case v18
     case v19
-    case v30
     case v31
 
     var rubyVersionInt: Int? {
@@ -19,17 +18,20 @@ enum RubyVersionPick: String, CaseIterable, Hashable {
         case .auto: return nil
         case .v18: return 18
         case .v19: return 19
-        case .v30: return 30
         case .v31: return 31
         }
     }
 
+    /// Decoder for `GameSettings.rubyVersionOverride` and
+    /// auto-detected `metadata.rubyVersion`. Old data may have 30
+    /// from when the project shipped a native Ruby 3.0 binding;
+    /// fold it onto v31 since the dispatcher routes 30 to the 3.1
+    /// runtime + Legacy syntax-transform anyway.
     static func from(_ value: Int?) -> RubyVersionPick {
         switch value {
         case 18: return .v18
         case 19: return .v19
-        case 30: return .v30
-        case 31: return .v31
+        case 30, 31: return .v31
         default: return .auto
         }
     }
@@ -39,8 +41,44 @@ enum RubyVersionPick: String, CaseIterable, Hashable {
         case .auto: return "Auto-detect"
         case .v18: return "Ruby 1.8"
         case .v19: return "Ruby 1.9"
-        case .v30: return "Ruby 3.0"
         case .v31: return "Ruby 3.1"
+        }
+    }
+}
+
+/// Compatibility-mode pick for the Game Settings sheet. Backs
+/// `GameSettings.useModernRuby`; resolved to a
+/// `MKXPSyntaxTransformMode` at engine boot via
+/// `GameSettings.resolveSyntaxTransformMode`. Effective only on
+/// the patched Ruby 3.1 build; selecting "Legacy" with the 1.x
+/// or 3.0 native interpreter is a no-op (the warning footer in
+/// the picker calls this out).
+enum CompatibilityPick: String, CaseIterable, Hashable {
+    case auto
+    case modern
+    case legacy
+
+    var useModernRubyValue: Bool? {
+        switch self {
+        case .auto: return nil
+        case .modern: return true
+        case .legacy: return false
+        }
+    }
+
+    static func from(_ value: Bool?) -> CompatibilityPick {
+        switch value {
+        case true?: return .modern
+        case false?: return .legacy
+        case nil: return .auto
+        }
+    }
+
+    var displayLabel: String {
+        switch self {
+        case .auto: return "Auto-detect"
+        case .modern: return "Modern (Ruby 3 strict)"
+        case .legacy: return "Legacy (rewrite Ruby 1.x syntax)"
         }
     }
 }
@@ -63,6 +101,13 @@ struct GameSettingsView: View {
     /// version the detector picked - so users can see what
     /// Auto-detect would route to without flipping the override.
     @State private var autoDetectedVersion: Int?
+    /// Cached result of `GameSettings.detectModernRubyScripts`,
+    /// populated by the sheet's `.task`. Used to dress the
+    /// "Auto-detect" row of the compatibility picker. nil while
+    /// the scan runs (the scanner reads up to 64 MB of native
+    /// binaries and walks loose .rb files; we don't want that on
+    /// every picker render).
+    @State private var autoDetectedModernScripts: Bool?
 
     private let gameDirectory: URL
     private let stateDirectory: URL
@@ -154,8 +199,9 @@ struct GameSettingsView: View {
         switch v {
         case 18: pretty = "Ruby 1.8"
         case 19: pretty = "Ruby 1.9"
-        case 30: pretty = "Ruby 3.0"
-        case 31: pretty = "Ruby 3.1"
+        // Old metadata may carry 30 from when a native 3.0 binding
+        // shipped; the dispatcher folds that onto 3.1 + Legacy.
+        case 30, 31: pretty = "Ruby 3.1"
         default: return "Auto-detect"
         }
         return "Auto-detect (\(pretty))"
@@ -267,14 +313,20 @@ struct GameSettingsView: View {
             .task {
                 // Read the import-time auto-detected Ruby version
                 // from metadata so the "Auto-detect" picker row
-                // shows what would be routed to. Also kicks off
-                // the legacy modern-Ruby script scanner for
-                // backward-compat consumers (postload scripts,
-                // older builds reading useModernRuby).
+                // shows what would be routed to.
                 if let container = game.container {
                     let metadata = GameMetadata.load(from: container)
                     autoDetectedVersion = metadata.rubyVersion
                 }
+                // Run the modern-Ruby scanner on a background task
+                // so the picker can show what the Auto-detect row
+                // would resolve to without hitching the main
+                // thread on every render.
+                let dir = gameDirectory
+                let modern = await Task.detached(priority: .userInitiated) {
+                    GameSettings.detectModernRubyScripts(in: dir)
+                }.value
+                autoDetectedModernScripts = modern
             }
         }
         .tint(.brand)
@@ -412,7 +464,6 @@ struct GameSettingsView: View {
                     Text(autoDetectLabel).tag(RubyVersionPick.auto)
                     Text(RubyVersionPick.v18.displayLabel).tag(RubyVersionPick.v18)
                     Text(RubyVersionPick.v19.displayLabel).tag(RubyVersionPick.v19)
-                    Text(RubyVersionPick.v30.displayLabel).tag(RubyVersionPick.v30)
                     Text(RubyVersionPick.v31.displayLabel).tag(RubyVersionPick.v31)
                 }
                 .pickerStyle(.navigationLink)
@@ -424,6 +475,24 @@ struct GameSettingsView: View {
                 .foregroundStyle(.secondary)
             }
             .padding(.vertical, Spacing.xxs)
+
+            if effectiveRubyVersionInt >= 30 {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Picker("Compatibility mode", selection: compatibilityBinding) {
+                        Text(autoDetectCompatLabel).tag(CompatibilityPick.auto)
+                        Text(CompatibilityPick.modern.displayLabel).tag(CompatibilityPick.modern)
+                        Text(CompatibilityPick.legacy.displayLabel).tag(CompatibilityPick.legacy)
+                    }
+                    .pickerStyle(.navigationLink)
+
+                    Text(
+                        "Controls whether the engine rewrites Ruby 1.x grammar (case labels, hash rockets, kwarg shorthand) into a form Ruby 3 accepts. The 1.8 / 1.9 builds parse legacy syntax natively, so the picker is hidden when those interpreters are active. Switch to Legacy if a Pokemon Essentials game errors with `private method called for Kernel:Module` or similar."
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, Spacing.xxs)
+            }
         } header: {
             Text("Engine")
         } footer: {
@@ -567,6 +636,46 @@ struct GameSettingsView: View {
             get: { RubyVersionPick.from(settings.rubyVersionOverride) },
             set: { pick in
                 settings.rubyVersionOverride = pick.rubyVersionInt
+            }
+        )
+    }
+
+    /// Effective Ruby major+minor (1.8 -> 18 ... 3.1 -> 31) the
+    /// engine will boot for this game. Mirrors `AppState.selectGame`'s
+    /// resolution: explicit override wins, else auto-detected
+    /// metadata, else 0 (unknown / unset). Used to gate the
+    /// compatibility-mode picker since the syntax-transform flag is
+    /// a no-op on Ruby < 3.0 (those interpreters parse legacy syntax
+    /// natively).
+    private var effectiveRubyVersionInt: Int {
+        if let override = settings.rubyVersionOverride { return override }
+        if let detected = autoDetectedVersion { return detected }
+        return 0
+    }
+
+    /// Label for the Auto-detect row in the compatibility picker.
+    /// Mirrors `autoDetectLabel` for the Ruby-version picker:
+    /// dresses the row with the value the script scanner would
+    /// resolve to right now for this game, so the user can pick
+    /// "Auto-detect" with confidence. Shows plain "Auto-detect"
+    /// while the scan is still running in the background.
+    private var autoDetectCompatLabel: String {
+        guard let modern = autoDetectedModernScripts else { return "Auto-detect" }
+        let resolved = modern
+            ? CompatibilityPick.modern.displayLabel
+            : CompatibilityPick.legacy.displayLabel
+        return "Auto-detect (\(resolved))"
+    }
+
+    /// Picker backing for `GameSettings.useModernRuby`:
+    /// nil   -> .auto (script scanner picks based on grammar),
+    /// true  -> .modern (engine skips the 1.x compat rewrite),
+    /// false -> .legacy (engine applies the 1.x compat rewrite).
+    private var compatibilityBinding: Binding<CompatibilityPick> {
+        Binding(
+            get: { CompatibilityPick.from(settings.useModernRuby) },
+            set: { pick in
+                settings.useModernRuby = pick.useModernRubyValue
             }
         )
     }

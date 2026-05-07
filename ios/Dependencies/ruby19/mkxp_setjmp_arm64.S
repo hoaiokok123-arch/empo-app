@@ -1,37 +1,23 @@
 // mkxp_setjmp_arm64.S (Ruby 1.9)
 //
-// Replacement for Apple's _setjmp / _longjmp used by Ruby 1.9's
-// fiber implementation. Apple's setjmp signs the saved link
-// register with PACIBSP (using SP as the modifier); _longjmp
-// then verifies via AUTIBSP. Ruby fibers longjmp onto a
-// *different* stack (Fiber.new allocates a per-fiber stack
-// region and swaps SP), so the modifier doesn't match and PAC
-// verification fails. Symptom: heap corruption surfaced by the
-// next malloc - on iOS 26+ the xzone allocator detects the
-// corruption and traps.
+// Thunks that tail-call Apple's libc _setjmp / _longjmp.
 //
-// Mirrors the Ruby 1.8 fix at ios/Dependencies/ruby18/. We
-// save/restore LR raw, skipping PAC entirely.
+// Earlier versions of this file rolled a hand-written
+// register save/restore on the theory that Apple's _setjmp
+// signs LR with PACIBSP and Ruby fibers longjmp onto a
+// different stack. On arm64 (not arm64e) the PAC ops are
+// hint NOPs, so the PAC concern is moot for the binaries we
+// ship. Forwarding to libc is simpler, matches what
+// pulsejet/android-mkxp does on Android (which plays the
+// same legacy-grammar games without crashing), and removes
+// any risk that our hand-rolled asm misses a callee-saved
+// register or alignment quirk that Apple's implementation
+// handles correctly.
 //
-// We DO save/restore the standard arm64 callee-saved set:
-//   x19-x28   general-purpose
-//   x29 (FP)  frame pointer
-//   x30 (LR)  link register (raw, unsigned)
-//   sp        stack pointer
-//   d8-d15    SIMD/FP regs (lower 64 bits, callee-saved)
-//
-// Layout (160 bytes, fits within Apple's 200-byte jmp_buf):
-//     0  x19, x20
-//    16  x21, x22
-//    32  x23, x24
-//    48  x25, x26
-//    64  x27, x28
-//    80  x29, x30
-//    96  sp
-//   104  d8, d9
-//   120  d10, d11
-//   136  d12, d13
-//   152  d14, d15
+// `b` is a tail call: LR is unchanged from the caller of
+// our thunk, so when _setjmp / _longjmp do `ret` they
+// return to / branch to the caller of mkxp_ruby19_setjmp /
+// mkxp_ruby19_longjmp respectively.
 
 #if defined(__aarch64__) || defined(__arm64__)
 
@@ -40,41 +26,10 @@
 
     .globl _mkxp_ruby19_setjmp
 _mkxp_ruby19_setjmp:
-    stp x19, x20, [x0,  #0]
-    stp x21, x22, [x0, #16]
-    stp x23, x24, [x0, #32]
-    stp x25, x26, [x0, #48]
-    stp x27, x28, [x0, #64]
-    stp x29, x30, [x0, #80]
-    mov x9, sp
-    str x9,       [x0, #96]
-    stp d8,  d9,  [x0, #104]
-    stp d10, d11, [x0, #120]
-    stp d12, d13, [x0, #136]
-    stp d14, d15, [x0, #152]
-    mov w0, wzr           // setjmp returns 0
-    ret
-
+    b _setjmp
 
     .globl _mkxp_ruby19_longjmp
 _mkxp_ruby19_longjmp:
-    ldp x19, x20, [x0,  #0]
-    ldp x21, x22, [x0, #16]
-    ldp x23, x24, [x0, #32]
-    ldp x25, x26, [x0, #48]
-    ldp x27, x28, [x0, #64]
-    ldp x29, x30, [x0, #80]
-    ldr x9,       [x0, #96]
-    mov sp, x9
-    ldp d8,  d9,  [x0, #104]
-    ldp d10, d11, [x0, #120]
-    ldp d12, d13, [x0, #136]
-    ldp d14, d15, [x0, #152]
-    // longjmp returns val to setjmp, but if val == 0 it returns 1
-    // (so the caller can always distinguish initial vs longjmp).
-    mov w2, #1
-    cmp w1, #0
-    csel w0, w1, w2, ne
-    ret                   // br x30, no PAC verify
+    b _longjmp
 
 #endif

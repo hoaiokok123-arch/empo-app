@@ -26,15 +26,30 @@ The 2014-era autoconf helper scripts don't recognize modern platform
 triplets like `aarch64-apple-darwin`. Both files were replaced with
 current GNU config versions so cross-compilation to iOS works.
 
+### `cont-aligned-stacksize.patch`: byte arithmetic for fiber stacks
+
+Applied separately after `ios.patch`. Forces `cont.c`'s fiber
+machine-stack size computation to go through `char *` casts so
+ALLOC_N and MEMCPY agree on a byte count even when the two
+`VALUE *` operands aren't `sizeof(VALUE)`-aligned relative to each
+other. Without this, clang's pointer-subtraction-implies-aligned
+optimization produces a 0-7 byte heap overflow on every fiber
+switch on iOS arm64, surfacing as freelist corruption traps in
+xzone malloc deeper into game execution. See the patch header
+for the full reasoning.
+
 ### Engine-side accommodations (in mkxp-z, not in Ruby source)
 
 These are not patches to Ruby itself, but engine-side adaptations
 required for Ruby 1.9 on iOS:
 
-1. **4MB RGSS thread stack**: Ruby 1.9's GC scans the entire thread
+1. **16MB RGSS thread stack**: Ruby 1.9's GC scans the entire thread
    stack for object references. The default 512KB iOS pthread stack
-   triggers SIGBUS when GC hits the guard page. Worked around by
-   calling `SDL_CreateThreadWithStackSize` with 4MB.
+   triggers SIGBUS when GC hits the guard page, and even 1MB is too
+   small for deep RGSS3 script call chains plus fiber stack-copy.
+   Worked around by calling `SDL_CreateThreadWithStackSize` with 16MB
+   (iOS commits stack pages lazily so this only costs virtual address
+   space, not physical RAM).
 
 2. **VM persistence**: `ruby_init()` is one-shot per process; the
    engine calls it once and reuses the VM across game sessions for

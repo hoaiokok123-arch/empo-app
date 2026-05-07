@@ -61,3 +61,6 @@ ios/Empo/Assets.bundle/*
 !ios/Empo/Assets.bundle/.gitkeep
 # Node tool caches (CI uses bun + bun.lock instead).
 node_modules/
+
+# Build outputs (xcodebuild derived data, IPA artifacts).
+build/

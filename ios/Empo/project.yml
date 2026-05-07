@@ -111,7 +111,7 @@ targets:
           set -e
           DEPS_LIB="${PROJECT_DIR}/../Dependencies/build-${PLATFORM_NAME}-arm64/lib"
           MISSING=""
-          for VER in 18 19 30 31; do
+          for VER in 18 19 31; do
               OBJ="$DEPS_LIB/mkxp${VER}-merged.o"
               if [ ! -f "$OBJ" ]; then
                   MISSING="$MISSING mkxp${VER}-merged.o"
@@ -121,7 +121,7 @@ targets:
               echo "error: missing per-Ruby merged objects:$MISSING" >&2
               echo "" >&2
               echo "hint: from ios/Dependencies, run:" >&2
-              echo "  SDK=${PLATFORM_NAME} make -f ${PLATFORM_NAME}.make ruby ruby30 ruby19 ruby18 mkxp-merged" >&2
+              echo "  SDK=${PLATFORM_NAME} make -f ${PLATFORM_NAME}.make ruby ruby19 ruby18 mkxp-merged" >&2
               exit 1
           fi
 
@@ -332,11 +332,10 @@ targets:
           - -lSDL2_image
           - -lSDL2_sound
           - -lSDL2_ttf
-          # Ruby static libs (3.0 + 3.1) are now linked indirectly
+          # Ruby static libs (1.8 / 1.9 / 3.1) are linked indirectly
           # via the per-version mkxpNN-merged.o files below in
           # OTHER_LDFLAGS. Their symbols are private-extern inside
-          # those merged .o's, so neither version's `_rb_*` clashes
-          # with the other.
+          # those merged .o's, so versions don't clash on `_rb_*`.
           - -lfreetype
           - -lpixman-1
           - -lpng16
@@ -356,12 +355,16 @@ targets:
           # static archive is searched before any system fallback.
           - -lopenal
           # Multi-Ruby Phase D: per-version binding+libruby merged
-          # objects, one per supported Ruby (3.0, 3.1; 1.9 + 1.8 to
-          # come). Each exposes a single
-          # `_mkxp_get_script_binding_<NN>()` entry; everything else
-          # (libruby's `_rb_*` + mkxp-z binding internals) is
-          # private-extern, hidden inside the merged .o so versions
-          # coexist without symbol clashes.
+          # objects, one per supported Ruby (1.8 / 1.9 / 3.1).
+          # Each exposes a single `_mkxp_get_script_binding_<NN>()`
+          # entry; everything else (libruby's `_rb_*` + mkxp-z
+          # binding internals) is private-extern, hidden inside the
+          # merged .o so versions coexist without symbol clashes.
+          # Native Ruby 3.0 was dropped: the syntax-transform parser
+          # patches only exist in the 3.1 source, so 3.0 + Legacy
+          # compat was a silent no-op. Auto-detect now folds
+          # 3.0-bundling games (Pokemon Essentials forks shipping
+          # `x64-msvcrt-ruby300.dll`) onto 3.1 + Legacy.
           #
           # `binding.h`'s `getActiveScriptBinding()` dispatches at
           # runtime based on the host's `mkxp_setActiveRubyVersion()`
@@ -372,7 +375,6 @@ targets:
           # the case in `getActiveScriptBinding()`.
           - $(DEPENDENCY_SEARCH_PATH)/lib/mkxp18-merged.o
           - $(DEPENDENCY_SEARCH_PATH)/lib/mkxp19-merged.o
-          - $(DEPENDENCY_SEARCH_PATH)/lib/mkxp30-merged.o
           - $(DEPENDENCY_SEARCH_PATH)/lib/mkxp31-merged.o
           - -ldl
           - -lpthread

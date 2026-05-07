@@ -332,18 +332,29 @@ $(LIBDIR)/libruby.3.1-static.a: $(SOURCES)/ruby/Makefile
 	cp -R include/* $(INCLUDEDIR)/ruby31/; \
 	cp .ext/include/*/ruby/config.h $(INCLUDEDIR)/ruby31/ruby/config.h 2>/dev/null || true
 	@# Header isolation: 3.1 lives under $(INCLUDEDIR)/ruby31/,
-	@# 3.0 under $(INCLUDEDIR)/ruby30/. Consumers (project.yml's
+	@# 1.9 under $(INCLUDEDIR)/ruby19/, 1.8 under
+	@# $(INCLUDEDIR)/ruby18/. Consumers (project.yml's
 	@# HEADER_SEARCH_PATHS, the per-version mkxp{N}-merged make
 	@# targets) must point at the right subdir for the version
-	@# they want. No global $(INCLUDEDIR)/ruby.h fallback so 3.0
-	@# builds don't accidentally see 3.1's headers and vice versa.
+	@# they want. No global $(INCLUDEDIR)/ruby.h fallback so each
+	@# build sees only its own headers.
 
 # Build Ruby 3.1 extensions (zlib, stringio, strscan, digest, etc.) plus
 # encoding libs into libruby.3.1-ext.a. Mirrors the Ruby 1.8 pattern (see
 # RUBY18_EXTS above). ext/extinit.o and enc/encinit.o replace the dmyext.o
 # and dmyenc.o stubs that live in libruby.3.1-static.a.
+#
+# `miniruby` is the host-side Ruby executable that runs the
+# extconf scripts and generates the encoding bundles. Ruby's
+# default targets don't build miniruby unless asked: a bare
+# `make libruby.3.1-static.a` skips it, so a clean rebuild here
+# silently produced an empty ext.a (zlib, stringio, etc. all
+# missing) which then linked into mkxp31-merged.o, leaving
+# scripts.rxdata decoding broken at runtime. Force-build miniruby
+# before exts so cross-compile bundle linking can find it.
 $(LIBDIR)/libruby.3.1-ext.a: $(LIBDIR)/libruby.3.1-static.a
 	cd $(SOURCES)/ruby; \
+	$(CONFIGURE_ENV) make -j$(NPROC) miniruby; \
 	$(CONFIGURE_ENV) make -j$(NPROC) exts encs || true
 	@TMPDIR=$$(mktemp -d); \
 	cd $$TMPDIR; \
@@ -396,77 +407,6 @@ $(SOURCES)/ruby/configure: $(SOURCES)/ruby/configure.ac
 	done; \
 	autoreconf -i
 
-# Ruby 3.0 (submodule: sources/ruby30)
-#
-# Builds alongside the Ruby 3.1 install. JoiPlay's RPG Maker plugin
-# ships exactly Ruby 1.8 + 1.9 + 3.0 (verified by inspecting the
-# .apk's lib/arm64-v8a/ contents on 2026-04-27); mkxp-z's upstream
-# pins to 3.0. Matching that validated set is the anchor.
-#
-# 3.0 SKIPS the syntax-transform patches. The point of multi-Ruby
-# is running games on their actual native Ruby parser. Modern games
-# written for Ruby 3.0+ don't need rewriting; vintage 1.8 / 1.9-
-# grammar games run on libruby18 / libruby19 instead.
-ruby30: init_dirs $(LIBDIR)/libruby.3.0-static.a $(LIBDIR)/libruby.3.0-ext.a
-
-$(LIBDIR)/libruby.3.0-static.a: $(SOURCES)/ruby30/Makefile
-	cd $(SOURCES)/ruby30; \
-	$(CONFIGURE_ENV) make -j$(NPROC) libruby.3.0-static.a; \
-	cp libruby.3.0-static.a $(LIBDIR)/; \
-	mkdir -p $(INCLUDEDIR)/ruby30; \
-	cp -R include/* $(INCLUDEDIR)/ruby30/; \
-	cp .ext/include/*/ruby/config.h $(INCLUDEDIR)/ruby30/ruby/config.h 2>/dev/null || true
-
-# Same ext-archive recipe as 3.1's, retargeted at the 3.0 source tree.
-$(LIBDIR)/libruby.3.0-ext.a: $(LIBDIR)/libruby.3.0-static.a
-	cd $(SOURCES)/ruby30; \
-	$(CONFIGURE_ENV) make -j$(NPROC) exts encs || true
-	@TMPDIR=$$(mktemp -d); \
-	cd $$TMPDIR; \
-	for a in $$(find $(SOURCES)/ruby30/ext -name "*.a" -not -path "*/test/*") \
-	         $(SOURCES)/ruby30/enc/libenc.a $(SOURCES)/ruby30/enc/libtrans.a; do \
-		[ -f "$$a" ] || continue; \
-		sub=$$(basename $$a .a); \
-		mkdir -p "$$sub"; \
-		(cd "$$sub" && $(AR) x "$$a"); \
-	done; \
-	cp $(SOURCES)/ruby30/ext/extinit.o .; \
-	cp $(SOURCES)/ruby30/enc/encinit.o .; \
-	$(AR) rcs $(LIBDIR)/libruby.3.0-ext.a extinit.o encinit.o */*.o; \
-	$(RANLIB) $(LIBDIR)/libruby.3.0-ext.a; \
-	rm -rf $$TMPDIR
-	@# Strip dmyext.o and dmyenc.o from the core static lib so the real
-	@# Init_ext and Init_enc in libruby.3.0-ext.a win at link time.
-	$(AR) d $(LIBDIR)/libruby.3.0-static.a dmyext.o dmyenc.o || true
-	$(RANLIB) $(LIBDIR)/libruby.3.0-static.a
-
-$(SOURCES)/ruby30/Makefile: $(SOURCES)/ruby30/configure
-	cd $(SOURCES)/ruby30; \
-	export $(CONFIGURE_ENV); \
-	export CFLAGS="-std=gnu99 -DRUBY_FUNCTION_NAME_STRING=__func__ $$CFLAGS"; \
-	export LDFLAGS="$$LDFLAGS"; \
-	./configure $(CONFIGURE_ARGS) $(RUBY_CONFIGURE_ARGS) \
-	ac_cv_func_setpgrp_void=yes \
-	ac_cv_func_fork=no \
-	ac_cv_func_dup3=no \
-	ac_cv_func_pipe2=no \
-	ac_cv_func_getentropy=no \
-	ac_cv_func_posix_spawn=no \
-	ac_cv_func_posix_spawnp=no \
-	ac_cv_func_fdatasync=no \
-	ac_cv_func_preadv=no \
-	ac_cv_func_pwritev=no \
-	ac_cv_func_copy_file_range=no \
-	ac_cv_func_close_range=no \
-	cross_compiling=yes; \
-	sed -i '' 's|^ASFLAGS.*=.*|ASFLAGS = $$(ARCH_FLAG) $$(INCFLAGS) $(TARGETFLAGS)|' Makefile
-
-$(SOURCES)/ruby30/configure: $(SOURCES)/ruby30/configure.ac
-	cd $(SOURCES)/ruby30; \
-	git checkout -- . 2>/dev/null; \
-	git apply $(PATCHES)/ruby30/ios.patch; \
-	autoreconf -i
-
 # Per-Ruby-version mkxp-z binding compile + libruby merge.
 #
 # Phase D of MULTI_RUBY_PLAN.md (gitignored): ship multiple Ruby
@@ -478,64 +418,12 @@ $(SOURCES)/ruby30/configure: $(SOURCES)/ruby30/configure.ac
 # versions; each merged .o exposes only its own `Init_mkxpNN`-style
 # entry points to the host.
 #
-# This target builds the Ruby 3.0 slice. Sister targets (mkxp31-merged,
-# mkxp19-merged, mkxp18-merged) follow once the binding compile shape
-# is verified for 3.0.
-
-# Where the binding-source-against-Ruby-3.0 .o files land. Versioned
-# subdir under build-$(SDK)-$(ARCH) so the sister versions don't
-# collide.
-BINDING_OBJDIR_30 := $(BUILD_PREFIX)/binding30
-
-# Mkxp-z's full -I list, mirroring project.yml's HEADER_SEARCH_PATHS.
-# Includes both the engine source tree (so the binding can reach
-# `audio/audio.h` etc. by short path) and the per-Ruby header dir
-# placed AHEAD of the global $(INCLUDEDIR) to win against any 3.1
-# header pollution.
-MKXPZ_INCLUDES_30 := \
-    -I$(INCLUDEDIR)/ruby30 \
-    -I$(ENGINE) \
-    -I$(ENGINE)/src \
-    -I$(ENGINE)/src/audio \
-    -I$(ENGINE)/src/crypto \
-    -I$(ENGINE)/src/display \
-    -I$(ENGINE)/src/display/gl \
-    -I$(ENGINE)/src/display/libnsgif \
-    -I$(ENGINE)/src/etc \
-    -I$(ENGINE)/src/filesystem \
-    -I$(ENGINE)/src/input \
-    -I$(ENGINE)/src/net \
-    -I$(ENGINE)/src/system \
-    -I$(ENGINE)/src/theoraplay \
-    -I$(ENGINE)/src/util \
-    -I$(ENGINE)/binding \
-    -I$(ENGINE)/shader \
-    -I$(ENGINE)/hmode7/src \
-    -I$(INCLUDEDIR)/SDL2 \
-    -I$(INCLUDEDIR)/pixman-1 \
-    -I$(INCLUDEDIR)/uchardet \
-    -I$(INCLUDEDIR)/freetype2 \
-    -I$(INCLUDEDIR) \
-    -I${PWD}/ANGLE/$(SDK)/include
-
-# Same preprocessor defines project.yml hands Xcode for the binding
-# compile, EXCEPT MKXPZ_RUBY_VERSION (per-version) and
-# MKXPZ_HAVE_SYNTAX_TRANSFORM_PATCHES (3.1-only). Quoting note:
-# project.yml escapes the string-literal defines for YAML; here we
-# pass them through the shell, so the inner quotes need to survive
-# both make's and the shell's expansion.
-MKXPZ_DEFINES_30 := \
-    -DMKXPZ_BUILD_XCODE \
-    -DMKXPZ_ALCDEVICE=ALCdevice \
-    -DMKXPZ_VERSION='"1.0.0"' \
-    -DMKXPZ_GIT_HASH='"ios"' \
-    -DMKXPZ_RUBY_VERSION='"3.0"' \
-    -DMKXPZ_RUBY_VERSION_MAJOR=3 \
-    -DMKXPZ_RUBY_VERSION_MINOR=0 \
-    -DGLES2_HEADER \
-    -DMKXPZ_HAS_ANGLE \
-    -DHAVE_CONFIG_H \
-    -DHM7_HAVE_MKXP_BITMAP
+# This target builds the per-version mkxp-z merged objects for
+# Ruby 1.8 / 1.9 / 3.1. Native Ruby 3.0 was dropped: the syntax-
+# transform parser patches only exist in the 3.1 source, so 3.0 +
+# Legacy compatibility was a silent no-op that confused users on
+# Pokemon Essentials forks. Auto-detect routes 3.0-bundling games
+# to 3.1 + Legacy.
 
 # Suppress the same warnings project.yml suppresses, so the per-Ruby
 # binding compile is no noisier than the in-Xcode build.
@@ -545,80 +433,13 @@ MKXPZ_WARNFLAGS := \
     -Wno-comma -Wno-switch -Wno-unused-const-variable \
     -Wno-deprecated-literal-operator -Wno-unused-function
 
-mkxp30-merged: init_dirs ruby30 $(LIBDIR)/mkxp30-merged.o
 mkxp31-merged: init_dirs ruby     $(LIBDIR)/mkxp31-merged.o
 mkxp19-merged: init_dirs ruby19   $(LIBDIR)/mkxp19-merged.o
 mkxp18-merged: init_dirs ruby18   $(LIBDIR)/mkxp18-merged.o
-mkxp-merged: mkxp18-merged mkxp19-merged mkxp30-merged mkxp31-merged
+mkxp-merged: mkxp18-merged mkxp19-merged mkxp31-merged
 
-# 1. Compile every mkxp-z binding/*.cpp against Ruby 3.0 headers.
-# 2. ld -r merges them with libruby.3.0-static.a + libruby.3.0-ext.a.
-# 3. Unexport list demotes every Ruby-defined symbol to local.
-#
-# Output: a single relocatable .o file. The host links it like any
-# other object; the symbols inside are private-extern so a sister
-# mkxp31-merged.o (or mkxp19, mkxp18) can sit alongside without
-# conflict.
-$(LIBDIR)/mkxp30-merged.o: $(LIBDIR)/libruby.3.0-static.a \
-                          $(LIBDIR)/libruby.3.0-ext.a \
-                          ${PWD}/multiruby/wrapper.cpp
-	@echo "[mkxp30] Compiling binding/*.cpp against Ruby 3.0..."
-	@mkdir -p $(BINDING_OBJDIR_30)
-	@for src in $(ENGINE)/binding/*.cpp $(ENGINE)/hmode7/src/*.cpp; do \
-	    obj=$(BINDING_OBJDIR_30)/$$(basename $$src .cpp).o; \
-	    echo "  -> $$(basename $$obj)"; \
-	    $(CXX) -isysroot $(SYSROOT) $(TARGET_FLAG) \
-	        -std=c++14 -fdeclspec -fobjc-arc -O3 \
-	        $(MKXPZ_INCLUDES_30) $(MKXPZ_DEFINES_30) $(MKXPZ_WARNFLAGS) \
-	        -c $$src -o $$obj || exit 1; \
-	done
-	@echo "[mkxp30] Compiling per-version wrapper..."
-	@$(CXX) -isysroot $(SYSROOT) $(TARGET_FLAG) \
-	    -std=c++14 -fdeclspec -O3 \
-	    -DMULTIRUBY_SUFFIX=_30 \
-	    $(MKXPZ_INCLUDES_30) \
-	    -c ${PWD}/multiruby/wrapper.cpp \
-	    -o $(BINDING_OBJDIR_30)/_multiruby_wrapper.o
-	@echo "[mkxp30] Generating unexport list..."
-	@# Unexport: every libruby symbol + every binding-internal symbol
-	@# EXCEPT the wrapper's single versioned entry point. We get the
-	@# binding-internals by nm-ing the per-version binding objects;
-	@# the wrapper's `_mkxp_get_script_binding_30` is filtered out.
-	@#
-	@# C++ RTTI / typeinfo / vtable / ABI runtime symbols
-	@# (`__ZTI*`, `__ZTS*`, `__ZTV*`, `___cxa_*`) are also kept
-	@# externally visible. Hiding them breaks exception
-	@# propagation: a `throw Exception(...)` in the merged.o never
-	@# matches a `catch (const Exception&)` because libc++abi's
-	@# typeinfo lookup needs the symbols to retain default
-	@# visibility. Without this, missing-asset code paths crash
-	@# the app via `__cxa_throw -> failed_throw -> abort` instead
-	@# of being converted to Ruby exceptions by `RB_METHOD_GUARD`.
-	${PWD}/tools/generate-ruby-unexports.sh \
-	    $(LIBDIR)/libruby.3.0-static.a $(LIBDIR)/libruby.3.0-ext.a \
-	    > $(BUILD_PREFIX)/ruby30-unexports.txt
-	@nm -gU $(BINDING_OBJDIR_30)/*.o 2>/dev/null \
-	    | awk '/^[0-9a-f]+ [TDSR] /{print $$3}' \
-	    | sort -u \
-	    | grep -v '^_mkxp_get_script_binding_30$$' \
-	    | grep -vE '^__Z(TI|TS|TV)|^___cxa_' \
-	    >> $(BUILD_PREFIX)/ruby30-unexports.txt
-	@echo "[mkxp30] Merging via ld -r..."
-	@LD=$$(xcrun --sdk $(SDK) -f ld); \
-	"$$LD" -r -arch $(ARCH) \
-	    $(LD_PLATFORM_VERSION) \
-	    -syslibroot $(SYSROOT) \
-	    -unexported_symbols_list $(BUILD_PREFIX)/ruby30-unexports.txt \
-	    $(LIBDIR)/libruby.3.0-static.a \
-	    $(LIBDIR)/libruby.3.0-ext.a \
-	    $(BINDING_OBJDIR_30)/*.o \
-	    -o $(LIBDIR)/mkxp30-merged.o
-	@echo "[mkxp30] Verifying merged .o..."
-	@TGLOBALS=$$(nm $(LIBDIR)/mkxp30-merged.o | awk '$$2 == "T"' | sort -u | wc -l | tr -d ' '); \
-	echo "  global T symbols (should be 1: _mkxp_get_script_binding_30): $$TGLOBALS"
-	@nm $(LIBDIR)/mkxp30-merged.o | awk '$$2 == "T"' | head -3
-
-# Ruby 3.1 — same shape as the 3.0 recipe above. Includes are
+# Ruby 3.1 — patched parser with syntax-transform support. Includes
+# are
 # anchored at the global $(INCLUDEDIR) (3.1's traditional install
 # location) rather than $(INCLUDEDIR)/ruby31, since the existing
 # `ruby` make target installs there. Once 3.1 is migrated to a
@@ -959,17 +780,13 @@ $(LIBDIR)/libruby19-static.a: $(SOURCES)/ruby19/Makefile
 	mkdir -p $(INCLUDEDIR)/ruby19; \
 	cp -R include/* $(INCLUDEDIR)/ruby19/; \
 	cp .ext/include/aarch64-darwin/ruby/config.h $(INCLUDEDIR)/ruby19/ruby/config.h 2>/dev/null || true
-	@# Compile our PAC-free arm64 setjmp/longjmp replacement and
-	@# inject it into libruby19-static.a. Same rationale as the
-	@# Ruby 1.8 fix: Apple's _setjmp signs LR with PACIBSP using
-	@# SP as the modifier; longjmp verifies via AUTIBSP. Ruby's
-	@# fiber implementation longjmps onto a different stack
-	@# (Fiber.new allocates per-fiber stack regions and swaps
-	@# SP), so PAC verification fails. Symptom on iOS 26+ is
-	@# heap corruption traps in xzone_malloc on the first malloc
-	@# after a fiber switch. config.h is sed'd in the Makefile
-	@# rule below to point RUBY_SETJMP / RUBY_LONGJMP at our
-	@# symbols.
+	@# Compile our setjmp/longjmp shim and inject it into
+	@# libruby19-static.a. The shim is currently a tail-call
+	@# forwarder to libc _setjmp / _longjmp; we keep the
+	@# indirection so we can swap the implementation per-arch
+	@# without rebuilding the rest of Ruby. config.h is sed'd
+	@# in the Makefile rule below to point RUBY_SETJMP /
+	@# RUBY_LONGJMP at our symbols.
 	$(CC) $(TARGETFLAGS) -c ${PWD}/ruby19/mkxp_setjmp_arm64.S \
 		-o $(SOURCES)/ruby19/mkxp_setjmp_arm64.o
 	$(AR) rcs $(LIBDIR)/libruby19-static.a $(SOURCES)/ruby19/mkxp_setjmp_arm64.o
@@ -1016,12 +833,12 @@ $(SOURCES)/ruby19/Makefile: $(SOURCES)/ruby19/configure
 	sed -i '' 's|^BASERUBY = ruby$$|BASERUBY = ruby --disable=gems|' Makefile; \
 	sed -i '' 's|^MINIRUBY = ruby |MINIRUBY = ruby --disable=gems |' Makefile
 	@# Override config.h's RUBY_SETJMP / RUBY_LONGJMP to point at
-	@# our PAC-free arm64 setjmp variant (see mkxp_setjmp_arm64.S).
-	@# Configure picks `_setjmp` based on HAVE__SETJMP detection;
-	@# Apple's `_setjmp` signs LR with PAC, breaking Ruby's fiber
-	@# stack-swapping. Our replacement uses raw LR save/restore.
-	@# `returns_twice` tells the compiler the call may resume
-	@# control flow at the call site so locals stay reload-safe.
+	@# our shim symbols (see mkxp_setjmp_arm64.S). The shim
+	@# currently tail-calls libc _setjmp / _longjmp; the
+	@# indirection lets us swap implementations per-arch
+	@# without rebuilding the rest of Ruby. `returns_twice`
+	@# tells the compiler the call may resume control flow at
+	@# the call site so locals stay reload-safe.
 	CONFIG_H=$(SOURCES)/ruby19/.ext/include/aarch64-darwin/ruby/config.h; \
 	if [ -f $$CONFIG_H ]; then \
 	    sed -i '' \
@@ -1039,6 +856,7 @@ $(SOURCES)/ruby19/configure: $(SOURCES)/ruby19/configure.in
 	git clean -fdxq 2>/dev/null; \
 	rm -f aarch64-darwin-fake.rb arm64-darwin-fake.rb; \
 	git apply $(PATCHES)/ruby19/ios.patch; \
+	git apply $(PATCHES)/ruby19/cont-aligned-stacksize.patch; \
 	autoconf
 
 RUBY18_CFLAGS = $(TARGETFLAGS) -std=gnu89 -O2 \

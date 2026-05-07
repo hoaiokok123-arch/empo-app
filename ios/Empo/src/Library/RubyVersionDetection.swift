@@ -73,12 +73,19 @@ enum RubyVersionDetection {
         /// fall through to the standard signals (DLL filename,
         /// script grammar, archive extension, Game.ini Library=).
         case noStandaloneFramework = "no-standalone-framework"
+
+        /// Drops the native Ruby 3.0 dispatch. Games previously
+        /// detected as 30 (a Pokemon Essentials fork bundling
+        /// `x64-msvcrt-ruby300.dll`) re-detect to 31, where the
+        /// patched 3.1 parser + Legacy syntax-transform mode is
+        /// the only Ruby 3 path we ship.
+        case dropRuby30 = "drop-ruby-30"
     }
 
     /// The schema this build's `detect()` implementation
     /// corresponds to. Bump alongside any code change that
     /// re-classifies some games.
-    static let currentSchema: Schema = .noStandaloneFramework
+    static let currentSchema: Schema = .dropRuby30
 
     /// Returns the Ruby version raw value (18 / 19 / 30 / 31) for
     /// `gameDirectory`. Mirrors `MKXPRubyVersion`'s enum integer
@@ -208,26 +215,6 @@ enum RubyVersionDetection {
         return 31
     }
 
-    /// Maps a "shipped" Ruby version (what the game was authored
-    /// against) to the runtime version we'll actually dispatch on.
-    /// On iOS arm64 our actual Ruby 1.8 / 1.9 builds have a class
-    /// of issues that the 3.1 + syntax-transform path doesn't:
-    /// PAC verification on fiber switching, font-rendering edge
-    /// cases on iOS 26+'s xzone allocator, and generally less
-    /// exercise paths through the engine. 3.1 with the parser
-    /// patches handles legacy grammar reliably; the 1.x dispatch
-    /// exists for completeness but isn't the safe default.
-    ///
-    /// Users who need real 1.x semantics can still override per
-    /// game in `GameSettings.rubyVersionOverride`; that bypasses
-    /// this remapping.
-    static func dispatchVersion(forShipped shipped: Int) -> Int {
-        switch shipped {
-        case 18, 19: return 31
-        default: return shipped
-        }
-    }
-
     /// Returns the Ruby version implied by the `Scripts.*` file
     /// extension found at the project root or under `Data/`.
     /// `.rxdata` → 18, `.rvdata` / `.rvdata2` → 19. nil if no
@@ -332,8 +319,11 @@ enum RubyVersionDetection {
     ///   - `19X` / `1.9.X`  → 19
     ///   - `2XX` / `2.X.Y`  → 31  (Ruby 2.x is syntactically
     ///                              closer to 3.x; map to 31)
-    ///   - `30X` / `3.0.X`  → 30
-    ///   - `3YX` (Y>=1)     → 31
+    ///   - `3XX` / `3.X.Y`  → 31  (we ship one Ruby 3 build, the
+    ///                              patched 3.1 with syntax-transform
+    ///                              support; native 3.0 was dropped
+    ///                              to avoid a silent-no-op trap on
+    ///                              Legacy compatibility mode.)
     private static func bundledRubyDLLVersion(
         at gameDirectory: URL,
         fm: FileManager
@@ -383,7 +373,12 @@ enum RubyVersionDetection {
             // than 19 for forks bundling Ruby 2.5/2.6/2.7.
             return 31
         case 3:
-            return bestMinor == 0 ? 30 : 31
+            // Single Ruby 3 build (3.1 patched with syntax-transform
+            // support). 3.0 was dropped because the transforms only
+            // exist in the 3.1 source; running 3.0 + Legacy compat
+            // was a silent no-op that confused users on Pokemon
+            // Essentials forks.
+            return 31
         default:
             // Future Ruby (4.x) - best effort.
             return 31

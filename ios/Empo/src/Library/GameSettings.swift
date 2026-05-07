@@ -197,10 +197,15 @@ struct GameSettings: Codable, Equatable {
     // Engine
     /// execute postload scripts for common fixes
     @Setting<Bool?, RestartFlag> var postloadScripts: Bool?
-    /// Legacy "skip the Ruby 1.8 compat transform" toggle, superseded
-    /// by `rubyVersionOverride`. Kept for backward-compatible decoding
-    /// of older `game_settings.json` files; the UI no longer surfaces
-    /// it. Will go away once syntax-transform is dropped.
+    /// Override for the engine's syntax-transform mode. nil = auto
+    /// (the script scanner picks based on the source's grammar);
+    /// true = `MKXP_SYNTAX_TRANSFORM_DISABLED` (Ruby 3 strict, no
+    /// rewrites); false = `MKXP_SYNTAX_TRANSFORM_LEGACY` (rewrite
+    /// `when X:`, hash rockets, kwarg shorthand etc into Ruby-3
+    /// compatible forms). The transforms are only applied by the
+    /// patched Ruby 3.1 parser; on the 1.8 / 1.9 / 3.0 builds the
+    /// value is a no-op. Surfaced as the "Compatibility mode"
+    /// picker in GameSettingsView.
     @Setting<Bool?, RestartFlag> var useModernRuby: Bool?
 
     /// Manual override for the per-game Ruby interpreter version.

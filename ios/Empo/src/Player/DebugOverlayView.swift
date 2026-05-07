@@ -51,6 +51,9 @@ struct DebugOverlayView: View {
             gameTitleBlock
 
             debugText(rubyLine)
+            if let line = syntaxTransformLine {
+                debugText(line)
+            }
             debugText(rendererLine)
 
             if let device = metalDeviceLine {
@@ -243,6 +246,23 @@ struct DebugOverlayView: View {
 
     private var rubyLine: String {
         "Ruby \(String(cString: mkxp_getRubyVersion()))"
+    }
+
+    /// Reports the active syntax-transform mode set via
+    /// `mkxp_setSyntaxTransformMode`. The transforms are only
+    /// effective on the patched Ruby 3.1 parser; on the Ruby
+    /// 1.8 / 1.9 / 3.0 builds the value is a no-op so we hide
+    /// the line. Returns nil when the mode hasn't been set or
+    /// when the active interpreter doesn't honor the patches.
+    private var syntaxTransformLine: String? {
+        let rubyTag = String(cString: mkxp_getRubyVersion())
+        guard rubyTag.hasPrefix("3.1") else { return nil }
+        switch mkxp_getSyntaxTransformMode() {
+        case MKXP_SYNTAX_TRANSFORM_LEGACY: return "Compatibility: legacy"
+        case MKXP_SYNTAX_TRANSFORM_DISABLED: return "Compatibility: modern"
+        case MKXP_SYNTAX_TRANSFORM_CUSTOM: return "Compatibility: custom"
+        default: return nil
+        }
     }
 
     /// Renderer line. Shows the ANGLE version once GL has initialized;
