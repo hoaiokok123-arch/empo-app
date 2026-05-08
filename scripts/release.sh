@@ -8,21 +8,58 @@ IPA_DIR="$REPO_ROOT/build/ipa"
 ALTSTORE_SOURCE="$REPO_ROOT/altstore-source.json"
 
 usage() {
-    echo "usage: $0 <version>"
-    echo "  version  semver without 'v' prefix (e.g. 0.1.0)"
+    echo "usage: $0 <bump>"
+    echo "  bump   major | minor | patch     bump latest tag's segment"
+    echo "         <semver>                  explicit version (e.g. 0.1.0)"
     exit 1
 }
 
 [[ $# -ne 1 ]] && usage
-VERSION="$1"
+BUMP_OR_VERSION="$1"
 
-# Validate semver format
-if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "error: version must be semver (e.g. 0.1.0), got: $VERSION"
-    exit 1
-fi
+# Resolve the new version. Accepts an explicit semver (`0.1.0`) for
+# rare jumps that don't follow the bump-the-last-tag pattern, or one
+# of `major` / `minor` / `patch` to derive it from the latest git
+# tag matching `v*.*.*`. Falls back to `0.1.0` when no prior tag
+# exists so the first release-cut works without a manual seed.
+case "$BUMP_OR_VERSION" in
+    major | minor | patch)
+        LATEST_TAG=$(git -C "$REPO_ROOT" tag --list "v*.*.*" --sort=-v:refname | head -n 1)
+        if [[ -z "$LATEST_TAG" ]]; then
+            echo "    no prior v*.*.* tag found; seeding at 0.1.0"
+            VERSION="0.1.0"
+        else
+            CURRENT="${LATEST_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            case "$BUMP_OR_VERSION" in
+                major) VERSION="$((MAJOR + 1)).0.0" ;;
+                minor) VERSION="${MAJOR}.$((MINOR + 1)).0" ;;
+                patch) VERSION="${MAJOR}.${MINOR}.$((PATCH + 1))" ;;
+            esac
+            echo "    bumping $BUMP_OR_VERSION: $LATEST_TAG -> v$VERSION"
+        fi
+        ;;
+    *)
+        if ! [[ "$BUMP_OR_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "error: argument must be major|minor|patch or a semver"
+            echo "       (e.g. 0.1.0), got: $BUMP_OR_VERSION"
+            exit 1
+        fi
+        VERSION="$BUMP_OR_VERSION"
+        ;;
+esac
 
 echo "==> releasing v$VERSION"
+
+# Refuse to bump onto an existing tag. Re-cutting an already-shipped
+# version overwrites the tag + GitHub release in place, which is
+# almost never what `release.sh` should be doing automatically. Use
+# manual `git tag -fs` + `gh release upload --clobber` for that
+# flow.
+if git -C "$REPO_ROOT" rev-parse "v$VERSION" >/dev/null 2>&1; then
+    echo "error: tag v$VERSION already exists; pick a different bump"
+    exit 1
+fi
 
 # 1. Check clean tree
 if ! git -C "$REPO_ROOT" diff --quiet HEAD; then
