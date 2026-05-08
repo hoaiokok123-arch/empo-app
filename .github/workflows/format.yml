@@ -5,6 +5,15 @@ on:
   push:
     branches: [main]
 
+# Several pinned actions (actions/cache, cirruslabs/swiftlint-action)
+# still run on Node.js 20. GitHub is forcing all JS actions to
+# Node.js 24 from 2026-06-02; opt in now so the deprecation banner is
+# silenced and we don't get a surprise breakage when the cutover
+# lands. Drop this once every action we pin ships a Node.js 24
+# release.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 # Format job verifies that the formatters would not modify any
 # tracked file. If they would, the job fails with a clear diff
 # so the contributor knows exactly what to run locally.
