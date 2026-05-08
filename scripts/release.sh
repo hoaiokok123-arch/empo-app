@@ -5,6 +5,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT_DIR="$REPO_ROOT/ios/Empo"
 PROJECT_YML="$PROJECT_DIR/project.yml"
 IPA_DIR="$REPO_ROOT/build/ipa"
+ALTSTORE_SOURCE="$REPO_ROOT/altstore-source.json"
 
 usage() {
     echo "usage: $0 <version>"
@@ -41,13 +42,12 @@ echo "    version: $VERSION, build: $BUILD"
 # 4. Regenerate Xcode project
 cd "$PROJECT_DIR"
 /opt/homebrew/bin/xcodegen generate --spec project.yml --project . --quiet
+cd "$REPO_ROOT"
 
-# 5. Commit and tag (signed)
-git -C "$REPO_ROOT" add "$PROJECT_YML" ios/Empo/Empo.xcodeproj/project.pbxproj
-git -C "$REPO_ROOT" commit -S -m "chore: bump version to $VERSION (build $BUILD)"
-git -C "$REPO_ROOT" tag -s "v$VERSION" -m "v$VERSION"
-
-# 6. Build unsigned .ipa
+# 5. Build unsigned .ipa BEFORE we commit; the IPA's size feeds the
+# AltStore manifest update in step 7, and we want every release-flow
+# artifact to be staged into the same single chore commit so the
+# tag points at a tree consistent with the asset that ships.
 echo "==> building unsigned ipa"
 BUILD_DIR="$PROJECT_DIR/build/Release-iphoneos"
 xcodebuild \
@@ -66,7 +66,7 @@ if [[ ! -d "$APP_PATH" ]]; then
     exit 1
 fi
 
-# Ad-hoc sign with our entitlements file so the Mach-O has an
+# 6. Ad-hoc sign with our entitlements file so the Mach-O has an
 # entitlements blob embedded. Sideloaders that resign the IPA
 # (AltStore, Sideloadly, ESign, Feather) read this blob as their
 # template; without it some resigners synthesize an incomplete
@@ -96,9 +96,12 @@ IPA_NAME="Empo-${VERSION}-unsigned.ipa"
 (cd "$IPA_DIR" && zip -qr "$IPA_NAME" Payload)
 rm -rf "$IPA_DIR/Payload"
 IPA_PATH="$IPA_DIR/$IPA_NAME"
-echo "    ipa: $IPA_PATH"
+IPA_SIZE=$(stat -f%z "$IPA_PATH")
+echo "    ipa: $IPA_PATH ($IPA_SIZE bytes)"
 
-# 7. Generate changelog
+# 7. Generate changelog (uses git-cliff if installed, otherwise a
+# generic placeholder). Generated before the version-bump commit
+# so `--unreleased` covers everything since the previous tag.
 CHANGELOG=""
 if command -v git-cliff &>/dev/null; then
     CHANGELOG=$(git-cliff --config "$REPO_ROOT/cliff.toml" --unreleased --strip all 2>/dev/null || true)
@@ -108,12 +111,37 @@ if [[ -z "$CHANGELOG" ]]; then
     CHANGELOG="See commit history for changes."
 fi
 
-# 8. Push
+# 8. Update altstore-source.json with the freshly-built IPA's
+# size + download URL. AltStore validates that the size in the
+# manifest exactly matches the downloaded asset on install; a
+# stale entry breaks updates for every AltStore-source-subscribed
+# user.
+echo "==> updating altstore-source.json"
+RELEASE_DATE=$(date -u +"%Y-%m-%d")
+DOWNLOAD_URL="https://github.com/mateo-m/empo-app/releases/download/v$VERSION/$IPA_NAME"
+bun "$REPO_ROOT/scripts/update-altstore-source.ts" \
+    --version "$VERSION" \
+    --build "$BUILD" \
+    --size "$IPA_SIZE" \
+    --date "$RELEASE_DATE" \
+    --download-url "$DOWNLOAD_URL" \
+    --description "$CHANGELOG"
+
+# 9. Commit + tag (signed). Single commit covers the version
+# bump, regenerated xcodeproj, and altstore-source.json update so
+# the tag points at a tree consistent with the published IPA.
+git -C "$REPO_ROOT" add "$PROJECT_YML" \
+    "ios/Empo/Empo.xcodeproj/project.pbxproj" \
+    "$ALTSTORE_SOURCE"
+git -C "$REPO_ROOT" commit -S -m "chore: bump version to $VERSION (build $BUILD)"
+git -C "$REPO_ROOT" tag -s "v$VERSION" -m "v$VERSION"
+
+# 10. Push
 echo "==> pushing to origin"
 git -C "$REPO_ROOT" push origin main
 git -C "$REPO_ROOT" push origin "v$VERSION"
 
-# 9. Create GitHub release
+# 11. Create GitHub release
 echo "==> creating github release"
 gh release create "v$VERSION" \
     --title "v$VERSION" \
