@@ -236,10 +236,16 @@ enum RubyScriptGrammarSniffer {
     private static let modernTokens: [String] = [
         // Safe call (2.3+): foo&.bar
         #"&\."#,
-        // Pattern matching (3.0+): case x; in [a, *]
-        #"\bcase\b\s+\S+[\s\S]{0,400}?\bin\b\s*[\[\{\(\w]"#,
-        // Endless method def (3.0+): def foo = bar
-        #"\bdef\s+\w+(\([^)]*\))?\s*=\s*\S"#,
+        // Pattern matching (3.0+): `case x; in pat`. Require the
+        // `in` branch to appear immediately after the case
+        // expression (modulo whitespace / comments / semicolons),
+        // otherwise ordinary RGSS `case ... when ... end` blocks in
+        // legacy scripts false-positive constantly.
+        #"\bcase\b(?:\s|#.*?$|;)+[^\n;#]+(?:\s|#.*?$|;)+\bin\b\s*[\[\{\(\w]"#,
+        // Endless method def (3.0+): `def foo = expr`. Exclude
+        // setter methods (`def x=(v)`), which are common in RGSS1
+        // and were being mistaken for endless defs.
+        #"\bdef\s+(?!\w+=)\w+(?:\([^)]*\))?\s*=\s*(?!\()\S"#,
         // Numbered block params (2.7+): _1, _2 inside { ... }
         #"\{\s*[^}]*\b_[1-9]\b"#,
         // Keyword-arg shorthand (3.1+): foo(x:, y:)
@@ -264,7 +270,12 @@ enum RubyScriptGrammarSniffer {
         var hits = 0
         let range = NSRange(source.startIndex..<source.endIndex, in: source)
         for pattern in modernTokens {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            guard
+                let regex = try? NSRegularExpression(
+                    pattern: pattern,
+                    options: [.anchorsMatchLines]
+                )
+            else { continue }
             hits += regex.numberOfMatches(in: source, options: [], range: range)
             if hits >= modernThreshold { return .modern }
         }

@@ -80,12 +80,18 @@ enum RubyVersionDetection {
         /// patched 3.1 parser + Legacy syntax-transform mode is
         /// the only Ruby 3 path we ship.
         case dropRuby30 = "drop-ruby-30"
+
+        /// Tightens script-grammar modern-Ruby detection to avoid
+        /// false-positives on legacy RGSS1 setter methods and plain
+        /// `case ... when ... end` blocks. Re-runs detection for
+        /// imports that were incorrectly tagged as Ruby 3.1.
+        case tightenGrammarSniff = "tighten-grammar-sniff"
     }
 
     /// The schema this build's `detect()` implementation
     /// corresponds to. Bump alongside any code change that
     /// re-classifies some games.
-    static let currentSchema: Schema = .dropRuby30
+    static let currentSchema: Schema = .tightenGrammarSniff
 
     /// Returns the Ruby version raw value (18 / 19 / 30 / 31) for
     /// `gameDirectory`. Mirrors `MKXPRubyVersion`'s enum integer
