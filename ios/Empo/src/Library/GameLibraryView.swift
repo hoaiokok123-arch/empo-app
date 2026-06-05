@@ -39,6 +39,7 @@ struct GameLibraryView: View {
     @State private var showSortSheet = false
     @State private var gameSizes: [String: Int64] = [:]
     @State private var sizesTask: Task<Void, Never>?
+    @State private var importWorkflow = ImportWorkflowController()
     /// Per-game record of which visual source triggered the most recent
     /// navigation into the player. Drives `.navigationTransition(.zoom)`
     /// so the exit animation lands on the same spot the user tapped.
@@ -83,7 +84,7 @@ struct GameLibraryView: View {
     private var pendingValidationEntries: [GameEntry] {
         guard !library.games.isEmpty else { return [] }
         return library.pendingImports.values
-            .sorted { $0.id < $1.id }
+            .sorted { $0.order < $1.order }
             .map(\.syntheticEntry)
     }
 
@@ -117,185 +118,12 @@ struct GameLibraryView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            ZStack {
-                if !showEmpty {
-                    gameContent
-                        .transition(.opacity)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .overlay {
-                if showEmpty {
-                    emptyStateContent
-                        .background {
-                            GeometryReader { geo in
-                                Color.clear.preference(key: EmptyStateHeightKey.self, value: geo.size.height)
-                            }
-                        }
-                        .offset(y: -AppSize.emptyStateOffset)
-                        .transition(.emptyState)
-                }
-            }
-            .onPreferenceChange(EmptyStateHeightKey.self) { emptyStateHeight = $0 }
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: Spacing.md) {
-                    libraryHeader
-                    if !showEmpty {
-                        searchBar
-                    }
-                }
-                .background {
-                    Rectangle()
-                        .fill(Color(.systemBackground))
-                        .padding(.bottom, -30)
-                        .mask {
-                            VStack(spacing: 0) {
-                                Rectangle()
-                                LinearGradient(
-                                    colors: [.black, .clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                                .frame(height: 30)
-                            }
-                        }
-                        .ignoresSafeArea(edges: .top)
-                }
-            }
-            .background {
-                Color(.systemBackground)
-                    .ignoresSafeArea()
-            }
-            .animation(Motion.standard, value: showEmpty)
-            .onChange(of: splashDismissed) { _, dismissed in
-                if dismissed {
-                    staggerTrigger = UUID()
-                    // Clear entrance delay after first mount so subsequent
-                    // animations (view mode switch, new imports) play instantly.
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(1))
-                        entranceDelay = 0
-                    }
-                }
-            }
-            .overlay(alignment: .topTrailing) {
-                if !selectionMode {
-                    ImportButton(
-                        showEmpty: showEmpty,
-                        showImporter: $showImporter,
-                        splashDismissed: splashDismissed,
-                        entranceDelay: entranceDelay,
-                        headerHeight: headerHeight,
-                        emptyStateHeight: emptyStateHeight,
-                        emptyStateOffset: -AppSize.emptyStateOffset,
-                        // Only the empty-state Import button shows a
-                        // validating label. When the library already has
-                        // games, pre-flight feedback lives on the grid/list
-                        // cards instead (see pendingValidationEntries).
-                        isValidating: showEmpty && !library.pendingImports.isEmpty,
-                        onRequestCancelValidation: { showCancelValidationAlert = true }
-                    )
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if selectionMode && !selectedIDs.isEmpty {
-                    bulkDeleteButton
-                        .padding(.bottom, Spacing._2xl)
-                        // Blur + scale + opacity rather than slide-up.
-                        // Reuses `.cardAppear` (the same transition the
-                        // grid/list cards use on enter/exit) so the
-                        // delete button feels like it belongs to the
-                        // same animation family as the rest of the
-                        // library content.
-                        .transition(.cardAppear)
-                }
-            }
-            .modifier(
-                BulkDeleteAlert(
-                    isPresented: $showBulkDeleteConfirm,
-                    count: selectedIDs.count,
-                    onConfirm: confirmBulkDelete
-                )
-            )
-            .toolbarVisibility(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showImporter) {
-                DocumentPickerView { urls in
-                    importGames(from: urls)
-                }
-            }
-            .sheet(item: $gameForSettings) { game in
-                GameSettingsView(game: game)
-            }
-            .sheet(item: $gameForInfo) { game in
-                GameInfoView(game: game)
-            }
-            .sheet(isPresented: $showSortSheet) {
-                sortSheet
-            }
-            .alert(errorTitle, isPresented: $showErrorAlert) {
-                Button("OK") {}
-            } message: {
-                Text(errorMessage ?? "Something went wrong.")
-            }
-            .alert("Delete Game?", isPresented: $showDeleteConfirm) {
-                Button("Delete", role: .destructive) {
-                    if let game = gameToDelete {
-                        library.deleteGame(game) { error in
-                            errorMessage = error
-                            showErrorAlert = true
-                        }
-                    }
-                }
-                .keyboardShortcut(.defaultAction)
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                if let game = gameToDelete {
-                    Text(
-                        "This will remove all files for \"\(game.title)\". You can always re-import it later."
-                    )
-                }
-            }
-            .alert("Invalid Game", isPresented: $showInvalidAlert) {
-                Button("OK") {}
-            } message: {
-                Text("This game couldn't be loaded properly. You can delete it and try importing again.")
-            }
-            .alert("Cancel import?", isPresented: $showCancelValidationAlert) {
-                Button("Keep importing", role: .cancel) {}
-                Button("Cancel import", role: .destructive) {
-                    for id in library.pendingImports.keys {
-                        library.cancelPendingImport(id)
-                    }
-                }
-            } message: {
-                Text("The game is still being validated. Cancelling will stop the import.")
-            }
-            .alert("A game is paused", isPresented: $showPausedGameAlert) {
-                Button("OK", role: .cancel) {
-                    pendingGame = nil
-                }
-                // "Quit and play" disabled until cross-session Ruby
-                // state cleanup is reliable. See ExperimentalFeature
-                // comment in AppSettings.swift. Users have to resume
-                // the paused game (tapping its card) or force-close
-                // the app to play a different one.
-                // Button("Quit and play") {
-                //     guard let game = pendingGame else { return }
-                //     pendingGame = nil
-                //     appState.returnToLibrary()
-                //     appState.selectGame(game)
-                //     path.append(game)
-                // }
-            } message: {
-                if let paused = pauseManager.pausedGame {
-                    Text(
-                        "\"\(paused.title)\" is still running. Resume it from its card, or force-close the app to play a different game."
-                    )
-                }
-            }
+            navigationContent
+        }
+    }
+
+    private var navigationContent: some View {
+        libraryPresentedContent
             .tint(nil)
             .navigationDestination(for: GameEntry.self) { game in
                 // The zoom destination targets whichever visible source
@@ -311,24 +139,168 @@ struct GameLibraryView: View {
                             in: heroNamespace))
             }
             .onChange(of: appState.phase) { _, newPhase in
-                if newPhase == nil && !path.isEmpty {
-                    path = NavigationPath()
-                }
-                if newPhase == nil {
-                    refreshGameSizes()
-                }
+                handleAppPhaseChange(newPhase)
             }
             .onChange(of: settings.librarySortOption) { _, newSort in
-                if newSort == .largestSize || newSort == .smallestSize {
-                    refreshGameSizes()
-                }
+                handleSortOptionChange(newSort)
             }
             .onChange(of: verticalSizeClass, initial: true) { _, newClass in
                 columns = Self.makeColumns(compact: newClass == .compact)
             }
+            .task(id: ObjectIdentifier(library)) {
+                importWorkflow.configure(library: library)
+            }
             .task {
                 refreshGameSizes()
             }
+    }
+
+    private var libraryPresentedContent: some View {
+        libraryScene
+            .modifier(
+                BulkDeleteAlert(
+                    isPresented: $showBulkDeleteConfirm,
+                    count: selectedIDs.count,
+                    onConfirm: confirmBulkDelete
+                )
+            )
+            .modifier(
+                LibrarySheetPresentation(
+                    showSettings: $showSettings,
+                    showImporter: $showImporter,
+                    gameForSettings: $gameForSettings,
+                    gameForInfo: $gameForInfo,
+                    showSortSheet: $showSortSheet,
+                    importRootPrompt: importRootPromptBinding,
+                    onImportPicked: importWorkflow.enqueue,
+                    onCancelImportChoice: importWorkflow.cancelChoice,
+                    onConfirmImportChoice: importWorkflow.confirmChoice
+                )
+            )
+            .modifier(
+                LibraryAlertPresentation(
+                    title: errorTitle,
+                    errorMessage: errorMessage,
+                    showErrorAlert: $showErrorAlert,
+                    gameToDelete: $gameToDelete,
+                    showDeleteConfirm: $showDeleteConfirm,
+                    showInvalidAlert: $showInvalidAlert,
+                    showCancelValidationAlert: $showCancelValidationAlert,
+                    showPausedGameAlert: $showPausedGameAlert,
+                    importWorkflowAlert: importWorkflowAlertBinding,
+                    pausedGame: pauseManager.pausedGame,
+                    onDeleteGame: deleteSelectedGame,
+                    onDismissImportWorkflowAlert: importWorkflow.dismissAlert,
+                    onCancelValidation: importWorkflow.cancelValidation,
+                    onDismissPausedGameAlert: { pendingGame = nil }
+                )
+            )
+            .toolbarVisibility(.hidden, for: .navigationBar)
+    }
+
+    private var libraryScene: some View {
+        libraryContentLayer
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay { emptyStateOverlay }
+            .onPreferenceChange(EmptyStateHeightKey.self) { emptyStateHeight = $0 }
+            .safeAreaInset(edge: .top, spacing: 0) { headerInset }
+            .background { libraryBackground }
+            .animation(Motion.standard, value: showEmpty)
+            .onChange(of: splashDismissed) { _, dismissed in
+                handleSplashDismissedChange(dismissed)
+            }
+            .overlay(alignment: .topTrailing) { importButtonOverlay }
+            .overlay(alignment: .bottom) { bulkDeleteOverlay }
+    }
+
+    private var libraryContentLayer: some View {
+        ZStack {
+            if !showEmpty {
+                gameContent
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var emptyStateOverlay: some View {
+        if showEmpty {
+            emptyStateContent
+                .background {
+                    GeometryReader { geo in
+                        Color.clear.preference(key: EmptyStateHeightKey.self, value: geo.size.height)
+                    }
+                }
+                .offset(y: -AppSize.emptyStateOffset)
+                .transition(.emptyState)
+        }
+    }
+
+    private var headerInset: some View {
+        VStack(spacing: Spacing.md) {
+            libraryHeader
+            if !showEmpty {
+                searchBar
+            }
+        }
+        .background {
+            Rectangle()
+                .fill(Color(.systemBackground))
+                .padding(.bottom, -30)
+                .mask {
+                    VStack(spacing: 0) {
+                        Rectangle()
+                        LinearGradient(
+                            colors: [.black, .clear],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 30)
+                    }
+                }
+                .ignoresSafeArea(edges: .top)
+        }
+    }
+
+    private var libraryBackground: some View {
+        Color(.systemBackground)
+            .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private var importButtonOverlay: some View {
+        if !selectionMode {
+            ImportButton(
+                showEmpty: showEmpty,
+                showImporter: $showImporter,
+                splashDismissed: splashDismissed,
+                entranceDelay: entranceDelay,
+                headerHeight: headerHeight,
+                emptyStateHeight: emptyStateHeight,
+                emptyStateOffset: -AppSize.emptyStateOffset,
+                // The empty-state button shows full status text.
+                // In the populated library the button is still
+                // collapsed, but using the same phase lets it
+                // surface a spinner during archive/root
+                // inspection before any progress card exists.
+                phase: importWorkflow.importButtonPhase,
+                onRequestCancelValidation: { showCancelValidationAlert = true }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var bulkDeleteOverlay: some View {
+        if selectionMode && !selectedIDs.isEmpty {
+            bulkDeleteButton
+                .padding(.bottom, Spacing._2xl)
+                // Blur + scale + opacity rather than slide-up.
+                // Reuses `.cardAppear` (the same transition the
+                // grid/list cards use on enter/exit) so the
+                // delete button feels like it belongs to the
+                // same animation family as the rest of the
+                // library content.
+                .transition(.cardAppear)
         }
     }
 
@@ -434,6 +406,7 @@ struct GameLibraryView: View {
         .padding(.top, Spacing.lg)
         .padding(.bottom)
         .animation(Motion.standard, value: filteredGames)
+        .animation(Motion.standard, value: pendingValidationEntries)
     }
 
     private func heroCard(for game: GameEntry) -> some View {
@@ -503,47 +476,7 @@ struct GameLibraryView: View {
             }
 
             ForEach(Array(filteredGames.enumerated()), id: \.element.id) { index, game in
-                let isPaused = pauseManager.pausedGame?.id == game.id
-                Button {
-                    handleCardTap(for: game)
-                } label: {
-                    GameListRow(
-                        game: game,
-                        isPaused: isPaused,
-                        heroNamespace: game.status == .ready ? heroNamespace : nil,
-                        onStopImport: game.status.phase == .importing
-                            ? {
-                                gameToDelete = game
-                                showDeleteConfirm = true
-                            } : nil
-                    )
-                    // Anchor on .topLeading so the badge floats over
-                    // the artwork's top-left corner instead of fighting
-                    // with the trailing GameStatusIndicator (which lives
-                    // on the row's trailing edge). Slight inset matches
-                    // the artwork's padding so the badge sits inside
-                    // the artwork rectangle.
-                    .overlay(alignment: .topLeading) {
-                        if selectionMode && game.status == .ready {
-                            selectionBadge(for: game.id)
-                                .padding(.leading, Spacing.xs)
-                                .padding(.top, Spacing.xs)
-                        }
-                    }
-                }
-                .buttonStyle(ListRowPressStyle())
-                .gameContextMenu(
-                    game: game,
-                    appState: appState,
-                    onPlay: { handleGameTap(game, from: .item) },
-                    onSelect: selectionMode ? nil : { enterSelectionMode(seedingWith: game.id) },
-                    gameToDelete: $gameToDelete,
-                    showDeleteConfirm: $showDeleteConfirm,
-                    gameForSettings: $gameForSettings,
-                    gameForInfo: $gameForInfo
-                )
-                .transition(.cardAppear)
-                .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
+                listRow(for: game, index: index)
 
                 if index < filteredGames.count - 1 {
                     Divider()
@@ -570,86 +503,139 @@ struct GameLibraryView: View {
         }
 
         ForEach(Array(filteredGames.enumerated()), id: \.element.id) { index, game in
-            switch game.status {
-            case .importing:
-                GameCard(
-                    game: game,
-                    onStopImport: {
+            gridItem(for: game, index: index)
+        }
+    }
+
+    private func listRow(for game: GameEntry, index: Int) -> some View {
+        let isPaused = pauseManager.pausedGame?.id == game.id
+        return Button {
+            handleCardTap(for: game)
+        } label: {
+            GameListRow(
+                game: game,
+                isPaused: isPaused,
+                heroNamespace: game.status == .ready ? heroNamespace : nil,
+                onStopImport: game.status.phase == .importing
+                    ? {
                         gameToDelete = game
                         showDeleteConfirm = true
-                    }
-                )
-                .cardShadow()
-                .id("\(game.id)-importing")
-                .transition(.cardAppear)
-                .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
-
-            case .invalid:
-                Button {
-                    handleCardTap(for: game)
-                } label: {
-                    GameCard(game: game)
-                        .cardShadow()
+                    } : nil
+            )
+            // Anchor on .topLeading so the badge floats over
+            // the artwork's top-left corner instead of fighting
+            // with the trailing GameStatusIndicator (which lives
+            // on the row's trailing edge). Slight inset matches
+            // the artwork's padding so the badge sits inside
+            // the artwork rectangle.
+            .overlay(alignment: .topLeading) {
+                if selectionMode && game.status == .ready {
+                    selectionBadge(for: game.id)
+                        .padding(.leading, Spacing.xs)
+                        .padding(.top, Spacing.xs)
                 }
-                .id("\(game.id)-invalid")
-                .buttonStyle(CardPressStyle())
-                .transition(.cardAppear)
-                .gameContextMenu(
-                    game: game,
-                    appState: appState,
-                    onPlay: { handleGameTap(game, from: .item) },
-                    gameToDelete: $gameToDelete,
-                    showDeleteConfirm: $showDeleteConfirm,
-                    gameForSettings: $gameForSettings,
-                    gameForInfo: $gameForInfo
-                )
-                .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
-
-            case .ready:
-                let isPaused = pauseManager.pausedGame?.id == game.id
-                Button {
-                    handleCardTap(for: game)
-                } label: {
-                    GameCard(game: game, isPaused: isPaused)
-                        .matchedTransitionSource(
-                            id: GameTapSource.item.transitionID(for: game.id),
-                            in: heroNamespace
-                        ) { config in
-                            config
-                                .background(.black)
-                                .clipShape(.rect(cornerRadius: Radius.md))
-                        }
-                        .cardShadow()
-                        .overlay(alignment: .topTrailing) {
-                            if selectionMode {
-                                selectionBadge(for: game.id)
-                                    .padding(Spacing.sm)
-                            }
-                        }
-                }
-                // NOTE: no .id("...-\(isPaused)") here on purpose.
-                // Forcing a remount on pause toggle destroys the
-                // matchedTransitionSource mid-animation, which
-                // makes the exit hero zoom snap to a fallback
-                // frame at its end. GameCard already animates its
-                // own pause overlay via GameStatusIndicator's
-                // internal .animation(Motion.gentle, value: …),
-                // so no remount is needed.
-                .buttonStyle(CardPressStyle())
-                .transition(.cardAppear)
-                .gameContextMenu(
-                    game: game,
-                    appState: appState,
-                    onPlay: { handleGameTap(game, from: .item) },
-                    onSelect: selectionMode ? nil : { enterSelectionMode(seedingWith: game.id) },
-                    gameToDelete: $gameToDelete,
-                    showDeleteConfirm: $showDeleteConfirm,
-                    gameForSettings: $gameForSettings,
-                    gameForInfo: $gameForInfo
-                )
-                .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
             }
         }
+        .buttonStyle(ListRowPressStyle())
+        .gameContextMenu(
+            game: game,
+            appState: appState,
+            onPlay: { handleGameTap(game, from: .item) },
+            onSelect: selectionMode ? nil : { enterSelectionMode(seedingWith: game.id) },
+            gameToDelete: $gameToDelete,
+            showDeleteConfirm: $showDeleteConfirm,
+            gameForSettings: $gameForSettings,
+            gameForInfo: $gameForInfo
+        )
+        .transition(.cardAppear)
+        .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
+    }
+
+    @ViewBuilder
+    private func gridItem(for game: GameEntry, index: Int) -> some View {
+        switch game.status {
+        case .importing:
+            GameCard(
+                game: game,
+                onStopImport: {
+                    gameToDelete = game
+                    showDeleteConfirm = true
+                }
+            )
+            .cardShadow()
+            .id("\(game.id)-importing")
+            .transition(.cardAppear)
+            .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
+
+        case .invalid:
+            Button {
+                handleCardTap(for: game)
+            } label: {
+                GameCard(game: game)
+                    .cardShadow()
+            }
+            .id("\(game.id)-invalid")
+            .buttonStyle(CardPressStyle())
+            .transition(.cardAppear)
+            .gameContextMenu(
+                game: game,
+                appState: appState,
+                onPlay: { handleGameTap(game, from: .item) },
+                gameToDelete: $gameToDelete,
+                showDeleteConfirm: $showDeleteConfirm,
+                gameForSettings: $gameForSettings,
+                gameForInfo: $gameForInfo
+            )
+            .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
+
+        case .ready:
+            readyGridItem(for: game, index: index)
+        }
+    }
+
+    private func readyGridItem(for game: GameEntry, index: Int) -> some View {
+        let isPaused = pauseManager.pausedGame?.id == game.id
+        return Button {
+            handleCardTap(for: game)
+        } label: {
+            GameCard(game: game, isPaused: isPaused)
+                .matchedTransitionSource(
+                    id: GameTapSource.item.transitionID(for: game.id),
+                    in: heroNamespace
+                ) { config in
+                    config
+                        .background(.black)
+                        .clipShape(.rect(cornerRadius: Radius.md))
+                }
+                .cardShadow()
+                .overlay(alignment: .topTrailing) {
+                    if selectionMode {
+                        selectionBadge(for: game.id)
+                            .padding(Spacing.sm)
+                    }
+                }
+        }
+        // NOTE: no .id("...-\(isPaused)") here on purpose.
+        // Forcing a remount on pause toggle destroys the
+        // matchedTransitionSource mid-animation, which
+        // makes the exit hero zoom snap to a fallback
+        // frame at its end. GameCard already animates its
+        // own pause overlay via GameStatusIndicator's
+        // internal .animation(Motion.gentle, value: …),
+        // so no remount is needed.
+        .buttonStyle(CardPressStyle())
+        .transition(.cardAppear)
+        .gameContextMenu(
+            game: game,
+            appState: appState,
+            onPlay: { handleGameTap(game, from: .item) },
+            onSelect: selectionMode ? nil : { enterSelectionMode(seedingWith: game.id) },
+            gameToDelete: $gameToDelete,
+            showDeleteConfirm: $showDeleteConfirm,
+            gameForSettings: $gameForSettings,
+            gameForInfo: $gameForInfo
+        )
+        .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
     }
 
     /// Tap entrypoint for grid cards / list rows. Branches on
@@ -770,24 +756,6 @@ struct GameLibraryView: View {
         }
     }
 
-    private func importGames(from urls: [URL]) {
-        for url in urls {
-            let accessing = url.startAccessingSecurityScopedResource()
-            let archiveName = url.deletingPathExtension().lastPathComponent
-
-            library.importGame(from: url) { error in
-                if accessing { url.stopAccessingSecurityScopedResource() }
-                if let error = error {
-                    errorTitle = "Couldn't import \"\(archiveName)\""
-                    errorMessage = error.localizedDescription
-                    showErrorAlert = true
-                } else {
-                    Haptics.impact()
-                }
-            }
-        }
-    }
-
     private func refreshGameSizes() {
         sizesTask?.cancel()
         sizesTask = Task {
@@ -804,8 +772,61 @@ struct GameLibraryView: View {
         }
     }
 
-    private var sortSheet: some View {
-        LibrarySortSheet(isPresented: $showSortSheet)
+    private func handleSplashDismissedChange(_ dismissed: Bool) {
+        if dismissed {
+            staggerTrigger = UUID()
+            // Clear entrance delay after first mount so subsequent
+            // animations (view mode switch, new imports) play instantly.
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(1))
+                entranceDelay = 0
+            }
+        }
+    }
+
+    private func handleAppPhaseChange(_ newPhase: GamePhase?) {
+        if newPhase == nil && !path.isEmpty {
+            path = NavigationPath()
+        }
+        if newPhase == nil {
+            refreshGameSizes()
+        }
+    }
+
+    private func handleSortOptionChange(_ newSort: LibrarySortOption) {
+        if newSort == .largestSize || newSort == .smallestSize {
+            refreshGameSizes()
+        }
+    }
+
+    private func deleteSelectedGame() {
+        guard let game = gameToDelete else { return }
+        library.deleteGame(game) { error in
+            errorMessage = error
+            showErrorAlert = true
+        }
+    }
+
+    private var importRootPromptBinding: Binding<ImportRootPrompt?> {
+        Binding(
+            get: { importWorkflow.activePrompt },
+            set: { newValue in
+                if newValue == nil {
+                    importWorkflow.dismissPrompt()
+                }
+            }
+        )
+    }
+
+    private var importWorkflowAlertBinding: Binding<ImportWorkflowAlert?> {
+        Binding(
+            get: { importWorkflow.alert },
+            set: { newValue in
+                if newValue == nil {
+                    importWorkflow.dismissAlert()
+                }
+            }
+        )
     }
 }
 
@@ -831,5 +852,121 @@ private struct BulkDeleteAlert: ViewModifier {
         } message: {
             Text("This will remove all files for the selected games. You can always re-import them later.")
         }
+    }
+}
+
+private struct LibrarySheetPresentation: ViewModifier {
+    @Binding var showSettings: Bool
+    @Binding var showImporter: Bool
+    @Binding var gameForSettings: GameEntry?
+    @Binding var gameForInfo: GameEntry?
+    @Binding var showSortSheet: Bool
+    @Binding var importRootPrompt: ImportRootPrompt?
+    let onImportPicked: ([URL]) -> Void
+    let onCancelImportChoice: () -> Void
+    let onConfirmImportChoice: ([GameImportValidator.ImportRootChoice]) -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
+            .sheet(isPresented: $showImporter) {
+                DocumentPickerView { urls in
+                    onImportPicked(urls)
+                }
+            }
+            .sheet(item: $gameForSettings) { game in
+                GameSettingsView(game: game)
+            }
+            .sheet(item: $gameForInfo) { game in
+                GameInfoView(game: game)
+            }
+            .sheet(isPresented: $showSortSheet) {
+                LibrarySortSheet(isPresented: $showSortSheet)
+            }
+            .sheet(item: $importRootPrompt) { prompt in
+                ImportRootPickerSheet(
+                    prompt: prompt,
+                    onCancel: onCancelImportChoice,
+                    onConfirm: onConfirmImportChoice
+                )
+            }
+    }
+}
+
+private struct LibraryAlertPresentation: ViewModifier {
+    let title: String
+    let errorMessage: String?
+    @Binding var showErrorAlert: Bool
+    @Binding var gameToDelete: GameEntry?
+    @Binding var showDeleteConfirm: Bool
+    @Binding var showInvalidAlert: Bool
+    @Binding var showCancelValidationAlert: Bool
+    @Binding var showPausedGameAlert: Bool
+    @Binding var importWorkflowAlert: ImportWorkflowAlert?
+    let pausedGame: GameEntry?
+    let onDeleteGame: () -> Void
+    let onDismissImportWorkflowAlert: () -> Void
+    let onCancelValidation: () -> Void
+    let onDismissPausedGameAlert: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .alert(item: $importWorkflowAlert) { alert in
+                Alert(
+                    title: Text(alert.title),
+                    message: Text(alert.message),
+                    dismissButton: .default(Text("OK"), action: onDismissImportWorkflowAlert)
+                )
+            }
+            .alert(title, isPresented: $showErrorAlert) {
+                Button("OK") {}
+            } message: {
+                Text(errorMessage ?? "Something went wrong.")
+            }
+            .alert("Delete Game?", isPresented: $showDeleteConfirm) {
+                Button("Delete", role: .destructive, action: onDeleteGame)
+                    .keyboardShortcut(.defaultAction)
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                if let game = gameToDelete {
+                    Text(
+                        "This will remove all files for \"\(game.title)\". You can always re-import it later."
+                    )
+                }
+            }
+            .alert("Invalid Game", isPresented: $showInvalidAlert) {
+                Button("OK") {}
+            } message: {
+                Text("This game couldn't be loaded properly. You can delete it and try importing again.")
+            }
+            .alert("Cancel import?", isPresented: $showCancelValidationAlert) {
+                Button("Keep importing", role: .cancel) {}
+                Button("Cancel import", role: .destructive, action: onCancelValidation)
+            } message: {
+                Text("The game is still being validated. Cancelling will stop the import.")
+            }
+            .alert("A game is paused", isPresented: $showPausedGameAlert) {
+                Button("OK", role: .cancel, action: onDismissPausedGameAlert)
+                // "Quit and play" disabled until cross-session Ruby
+                // state cleanup is reliable. See ExperimentalFeature
+                // comment in AppSettings.swift. Users have to resume
+                // the paused game (tapping its card) or force-close
+                // the app to play a different one.
+                // Button("Quit and play") {
+                //     guard let game = pendingGame else { return }
+                //     pendingGame = nil
+                //     appState.returnToLibrary()
+                //     appState.selectGame(game)
+                //     path.append(game)
+                // }
+            } message: {
+                if let pausedGame {
+                    Text(
+                        "\"\(pausedGame.title)\" is still running. Resume it from its card, or force-close the app to play a different game."
+                    )
+                }
+            }
     }
 }

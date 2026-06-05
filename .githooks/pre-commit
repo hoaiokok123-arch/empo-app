@@ -7,9 +7,9 @@
 #
 # Each tool block is gated on whether the staged set actually
 # contains files in its scope; touching only Markdown skips Swift,
-# touching only Swift skips clang-format, etc. Missing tools log a
-# warning and skip rather than failing the commit; CI remains the
-# authoritative gate.
+# touching only Swift skips clang-format, etc. Missing tools fail the
+# commit so contributors don't get a false green local commit that CI
+# later rejects.
 #
 # Auto-fixers (formatters) rewrite files in-place and re-stage them
 # so the resulting commit always matches the formatter's output.
@@ -61,11 +61,10 @@ die() {
     exit 1
 }
 
-# Tool-presence helper. Pre-commit is best-effort; if a tool isn't
-# installed locally we want a soft warning rather than a hard
-# failure (CI still enforces). Returns 0 when present, 1 when not.
-have() {
-    command -v "$1" >/dev/null 2>&1
+# Tool-presence helper. Missing required tools fail fast so local
+# commits don't bypass checks that CI will enforce.
+require_tool() {
+    command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installed"
 }
 
 # 1. Swift -- swift-format (formatter + lint), swiftlint (lint).
@@ -76,25 +75,19 @@ have() {
 SWIFT_FILES=$(match '^ios/Empo/src/.*\.swift$')
 if [ -n "$SWIFT_FILES" ]; then
     section "swift-format (Swift)"
-    if have swift-format; then
-        echo "$SWIFT_FILES" | xargs swift-format format -i
-        restage "$SWIFT_FILES"
-        echo "$SWIFT_FILES" | xargs swift-format lint --strict \
-            || die "swift-format lint failed"
-    else
-        echo "  (skipped: swift-format not installed; brew install swift-format)"
-    fi
+    require_tool swift-format
+    echo "$SWIFT_FILES" | xargs swift-format format -i
+    restage "$SWIFT_FILES"
+    echo "$SWIFT_FILES" | xargs swift-format lint --strict \
+        || die "swift-format lint failed"
 
     section "swiftlint (Swift)"
-    if have swiftlint; then
-        # SwiftLint defaults to scanning the whole project; pass
-        # explicit paths so the hook only checks what's staged.
-        # shellcheck disable=SC2086 # we want word-splitting on file list
-        swiftlint lint --strict --quiet $SWIFT_FILES \
-            || die "swiftlint failed"
-    else
-        echo "  (skipped: swiftlint not installed; brew install swiftlint)"
-    fi
+    require_tool swiftlint
+    # SwiftLint defaults to scanning the whole project; pass
+    # explicit paths so the hook only checks what's staged.
+    # shellcheck disable=SC2086 # we want word-splitting on file list
+    swiftlint lint --strict --quiet $SWIFT_FILES \
+        || die "swiftlint failed"
 fi
 
 # 2. ObjC / C / C++ -- clang-format (formatter only; no separate
@@ -102,12 +95,9 @@ fi
 CPP_FILES=$(match '^ios/Empo/(src|shims)/.*\.(h|m|mm|c|cpp)$')
 if [ -n "$CPP_FILES" ]; then
     section "clang-format (ObjC / C / C++)"
-    if have clang-format; then
-        echo "$CPP_FILES" | xargs clang-format -i
-        restage "$CPP_FILES"
-    else
-        echo "  (skipped: clang-format not installed; brew install clang-format)"
-    fi
+    require_tool clang-format
+    echo "$CPP_FILES" | xargs clang-format -i
+    restage "$CPP_FILES"
 fi
 
 # 3. Shell -- shfmt (formatter), shellcheck (lint).
@@ -118,18 +108,11 @@ fi
 SH_FILES=$(match '^tools/.*\.sh$')
 if [ -n "$SH_FILES" ]; then
     section "shfmt + shellcheck (Bash)"
-    if have shfmt; then
-        echo "$SH_FILES" | xargs shfmt -w -i 4 -ci
-        restage "$SH_FILES"
-    else
-        echo "  (skipped: shfmt not installed; brew install shfmt)"
-    fi
-
-    if have shellcheck; then
-        echo "$SH_FILES" | xargs shellcheck || die "shellcheck failed"
-    else
-        echo "  (skipped: shellcheck not installed; brew install shellcheck)"
-    fi
+    require_tool shfmt
+    require_tool shellcheck
+    echo "$SH_FILES" | xargs shfmt -w -i 4 -ci
+    restage "$SH_FILES"
+    echo "$SH_FILES" | xargs shellcheck || die "shellcheck failed"
 fi
 
 # 4. YAML / JSON -- prettier (formatter only).
@@ -140,24 +123,18 @@ fi
 PRETTIER_FILES=$(match '^(ios/Empo/project\.yml|ios/Empo/curated-patches/gameRegistry\.json)$')
 if [ -n "$PRETTIER_FILES" ]; then
     section "prettier (YAML / JSON)"
-    if have bun; then
-        echo "$PRETTIER_FILES" | xargs bun x prettier --write
-        restage "$PRETTIER_FILES"
-    else
-        echo "  (skipped: bun not installed; brew install oven-sh/bun/bun)"
-    fi
+    require_tool bun
+    echo "$PRETTIER_FILES" | xargs bun x prettier --write
+    restage "$PRETTIER_FILES"
 fi
 
 # 5. Markdown -- markdownlint (lint only; no autofix in CI).
 MD_FILES=$(match '\.md$')
 if [ -n "$MD_FILES" ]; then
     section "markdownlint (Markdown)"
-    if have bun; then
-        echo "$MD_FILES" | xargs bun x markdownlint -c .markdownlint.json \
-            || die "markdownlint failed"
-    else
-        echo "  (skipped: bun not installed; brew install oven-sh/bun/bun)"
-    fi
+    require_tool bun
+    echo "$MD_FILES" | xargs bun x markdownlint -c .markdownlint.json \
+        || die "markdownlint failed"
 fi
 
 printf '\n✓ pre-commit OK\n'

@@ -167,7 +167,8 @@ Issues, ideas, and PRs welcome.
 
 **When opening a PR:**
 
-- Match the existing code style. No formatter is enforced; imitate nearby code.
+- Run `./setup.sh` once after cloning so tracked git hooks are installed.
+- Formatting and linting are enforced locally by `.githooks/pre-commit` and again in CI.
 - Build green on the iOS Simulator before requesting review.
 - Reference any related issue.
 

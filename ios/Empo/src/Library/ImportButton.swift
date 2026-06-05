@@ -1,6 +1,38 @@
 import SwiftUI
 
 struct ImportButton: View {
+    enum Phase: Hashable {
+        case idle
+        case validating
+        case multipleGames
+
+        var title: String {
+            switch self {
+            case .idle:
+                return "Import game"
+            case .validating:
+                return "Validating"
+            case .multipleGames:
+                return "Choose game"
+            }
+        }
+
+        var accessibilityLabel: String {
+            switch self {
+            case .idle:
+                return "Import game"
+            case .validating:
+                return "Cancel import"
+            case .multipleGames:
+                return "Choose game"
+            }
+        }
+
+        var showsSpinner: Bool {
+            self != .idle
+        }
+    }
+
     var showEmpty: Bool
     @Binding var showImporter: Bool
     var splashDismissed: Bool
@@ -8,11 +40,11 @@ struct ImportButton: View {
     var headerHeight: CGFloat
     var emptyStateHeight: CGFloat
     var emptyStateOffset: CGFloat
-    /// True while one or more pre-flight validations are running.
-    /// During this window the button swaps its "Import game" label
-    /// for a "Validating" spinner and taps prompt a cancel
-    /// confirmation instead of opening the picker.
-    var isValidating: Bool = false
+    /// Empty-state import status. Archive/root inspection is folded
+    /// into `validating`; `multipleGames` only appears once that
+    /// inspection has confirmed an ambiguous import that needs user
+    /// input.
+    var phase: Phase = .idle
     var onRequestCancelValidation: (() -> Void)?
 
     @State private var importShimmer: CGFloat = -1
@@ -49,9 +81,9 @@ struct ImportButton: View {
             let arcDeg = (endAngle - startAngle) * 180 / .pi
 
             Button {
-                if isValidating {
+                if phase == .validating {
                     onRequestCancelValidation?()
-                } else {
+                } else if phase == .idle {
                     showImporter = true
                 }
             } label: {
@@ -63,7 +95,7 @@ struct ImportButton: View {
             // needs a stable announcement that doesn't flip between
             // "Plus button" and "Import game button" during the
             // collapsed<->expanded morph.
-            .accessibilityLabel(isValidating ? "Cancel import" : "Import game")
+            .accessibilityLabel(phase.accessibilityLabel)
             .onChange(of: collapsed) { _, _ in
                 Haptics.tap()
             }
@@ -120,7 +152,7 @@ struct ImportButton: View {
             .position(x: arcCenterX, y: arcCenterY)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.spring(duration: 0.25, bounce: 0.15), value: showEmpty)
-            .animation(Motion.standard, value: isValidating)
+            .animation(Motion.standard, value: phase)
             .onChange(of: showEmpty) { importMoveTrigger += 1 }
             .onAppear {
                 if splashDismissed {
@@ -148,10 +180,10 @@ struct ImportButton: View {
     private func importButtonLabel(collapsed: Bool) -> some View {
         HStack(spacing: Spacing.md) {
             importButtonIcon
-                .id(isValidating ? "validating" : "idle")
+                .id(phase)
                 .transition(.blurReplace)
             if !collapsed {
-                Text(isValidating ? "Validating" : "Import game")
+                Text(phase.title)
                     .contentTransition(.numericText())
                     .transition(.blurReplace)
             }
@@ -171,7 +203,7 @@ struct ImportButton: View {
 
     @ViewBuilder
     private var importButtonIcon: some View {
-        if isValidating {
+        if phase.showsSpinner {
             SpinnerRing(progress: 0, size: 18, lineWidth: 2)
         } else {
             Image(systemName: "plus")

@@ -18,7 +18,8 @@ import UIKit
 /// feedback stays anchored where the user expects it.
 struct PendingImport: Identifiable, Hashable {
     let id: String
-    let sourceName: String
+    let displayName: String
+    let order: Int
 
     /// Placeholder `GameEntry` used when rendering the pending
     /// import inside the existing grid/list. Container is nil
@@ -29,10 +30,42 @@ struct PendingImport: Identifiable, Hashable {
         GameEntry(
             id: id,
             container: nil,
-            title: sourceName,
+            title: displayName,
             artworkPath: nil,
             status: .importing(progress: 0)
         )
+    }
+}
+
+enum ImportTemporaryDirectory {
+    enum Kind: String {
+        case stagedArchive = "staged-archives"
+        case archiveChoiceProbe = "archive-choice-probe"
+        case folderImport = "folder-import"
+        case archivePreflight = "archive-preflight"
+        case archiveImport = "archive-import"
+    }
+
+    static var rootURL: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("empo-import", isDirectory: true)
+    }
+
+    static func makeScopedDirectory(
+        kind: Kind,
+        fm: FileManager = .default
+    ) throws -> URL {
+
+        let directoryURL =
+            rootURL
+            .appendingPathComponent(kind.rawValue, isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fm.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        return directoryURL
+    }
+
+    static func cleanupStaleDirectories(fm: FileManager = .default) {
+        try? fm.removeItem(at: rootURL)
     }
 }
 
@@ -42,6 +75,7 @@ class GameLibrary {
 
     var games: [GameEntry] = []
     var pendingImports: [String: PendingImport] = [:]
+    private var nextPendingImportOrder = 0
 
     private let fm = FileManager.default
     private let cancelledImports = Mutex(Set<String>())
@@ -59,6 +93,7 @@ class GameLibrary {
     nonisolated static var gamesDirectory: URL { GameContainer.rootURL }
 
     private init() {
+        ImportTemporaryDirectory.cleanupStaleDirectories()
         ensureGamesDirectory()
         // Initial scan runs off-main via reload(). The library is
         // observable and empty until the scan completes, which keeps
@@ -297,7 +332,12 @@ class GameLibrary {
         cancelImport(importID)
     }
 
-    func importGame(from sourceURL: URL, completion: @escaping @MainActor @Sendable (Error?) -> Void) {
+    func importGame(
+        from sourceURL: URL,
+        preferredGameRootRelativePath: String? = nil,
+        preferredDisplayName: String? = nil,
+        completion: @escaping @MainActor @Sendable (Error?) -> Void
+    ) {
         ensureGamesDirectory()
 
         let archiveFormat = ArchiveExtractor.Format(extension: sourceURL.pathExtension)
@@ -306,12 +346,19 @@ class GameLibrary {
             archiveFormat == nil
             ? sourceURL.lastPathComponent
             : sourceURL.deletingPathExtension().lastPathComponent
+        let pendingDisplayName = preferredDisplayName ?? sourceName
+        let pendingOrder = nextPendingImportOrder
+        nextPendingImportOrder += 1
 
         // Pre-flight phase: button shows "Validating", library keeps
         // its current UI (empty state or existing list). Once
         // pre-flight passes a progress card is committed to `games` and
         // extraction/finalisation runs with the card visible.
-        pendingImports[importID] = PendingImport(id: importID, sourceName: sourceName)
+        pendingImports[importID] = PendingImport(
+            id: importID,
+            displayName: pendingDisplayName,
+            order: pendingOrder
+        )
         // Mark the import as in-flight so concurrent library scans
         // (triggered by sibling imports finishing) skip this
         // container until the move is committed and metadata is
@@ -332,9 +379,19 @@ class GameLibrary {
             }
             do {
                 if archiveFormat != nil {
-                    try self.importArchive(from: sourceURL, importID: importID, sourceName: sourceName)
+                    try self.importArchive(
+                        from: sourceURL,
+                        importID: importID,
+                        sourceName: sourceName,
+                        preferredGameRootRelativePath: preferredGameRootRelativePath
+                    )
                 } else {
-                    try self.importFolder(from: sourceURL, importID: importID, sourceName: sourceName)
+                    try self.importFolder(
+                        from: sourceURL,
+                        importID: importID,
+                        sourceName: sourceName,
+                        preferredGameRootRelativePath: preferredGameRootRelativePath
+                    )
                 }
                 markNotInFlight()
                 await MainActor.run {
@@ -442,13 +499,17 @@ class GameLibrary {
         }
     }
 
-    nonisolated private func importFolder(from sourceURL: URL, importID: String, sourceName: String) throws {
+    nonisolated private func importFolder(
+        from sourceURL: URL,
+        importID: String,
+        sourceName: String,
+        preferredGameRootRelativePath: String?
+    ) throws {
         let fm = FileManager.default
         let folderName = sourceURL.lastPathComponent
 
-        let tmpDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let tmpDir = try ImportTemporaryDirectory.makeScopedDirectory(kind: .folderImport, fm: fm)
         let tmpDest = tmpDir.appendingPathComponent(folderName)
-        try fm.createDirectory(at: tmpDir, withIntermediateDirectories: true)
         defer { try? fm.removeItem(at: tmpDir) }
 
         // Pre-flight: copy once into tmp (cheaper than moving the
@@ -458,12 +519,21 @@ class GameLibrary {
         try fm.copyItem(at: sourceURL, to: tmpDest)
         guard !isImportCancelled(importID) else { throw ImportCancelled() }
 
-        try GameImportValidator.validate(tmpDest)
+        let gameRoot = try {
+            try GameImportValidator.validate(tmpDest)
+            if let preferredGameRootRelativePath {
+                return try GameImportValidator.resolveGameRoot(
+                    in: tmpDest,
+                    relativePath: preferredGameRootRelativePath
+                )
+            }
+            return GameImportValidator.locateGameRoot(in: tmpDest) ?? tmpDest
+        }()
         guard !isImportCancelled(importID) else { throw ImportCancelled() }
 
         // Pre-flight passed - commit the progress card so the rest
         // of the import has a visible home for progress/cancel UI.
-        let title = GameEntry.parseINITitle(at: tmpDest) ?? sourceName
+        let title = GameEntry.parseINITitle(at: gameRoot) ?? sourceName
         let container = GameContainer(id: importID, slug: GameContainer.slugify(title))
 
         // Lazy: write the exe-icon sidecar into Metadata/ from the
@@ -474,7 +544,7 @@ class GameLibrary {
         // afterwards. (For folder imports, sidecars are uncommon
         // because folder imports are usually pre-extracted RGSS
         // trees with `Graphics/Titles/` already present.)
-        let artworkPath = Self.findFolderImportArtwork(at: tmpDest)
+        let artworkPath = Self.findFolderImportArtwork(at: gameRoot)
         if let path = artworkPath {
             // Warm the decode cache before `tmpDest`'s defer-backed
             // cleanup kicks in so the card keeps rendering the
@@ -493,7 +563,7 @@ class GameLibrary {
         updateCardProgress(importID, 1.0)
 
         try fm.createDirectory(at: container.url, withIntermediateDirectories: true)
-        try fm.moveItem(at: tmpDest, to: container.gameURL)
+        try fm.moveItem(at: gameRoot, to: container.gameURL)
 
         var committed = false
         defer {
@@ -515,14 +585,21 @@ class GameLibrary {
         committed = true
     }
 
-    nonisolated private func importArchive(from sourceURL: URL, importID: String, sourceName: String) throws {
+    nonisolated private func importArchive(
+        from sourceURL: URL,
+        importID: String,
+        sourceName: String,
+        preferredGameRootRelativePath: String?
+    ) throws {
         let fm = FileManager.default
 
         // Pre-flight scratch: throwaway dir for selectively
         // extracting just the validation files. Lives only for the
         // length of the pre-flight phase.
-        let preflightDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try fm.createDirectory(at: preflightDir, withIntermediateDirectories: true)
+        let preflightDir = try ImportTemporaryDirectory.makeScopedDirectory(
+            kind: .archivePreflight,
+            fm: fm
+        )
         defer { try? fm.removeItem(at: preflightDir) }
 
         let preflightRoot: URL
@@ -530,6 +607,7 @@ class GameLibrary {
             preflightRoot = try GameImportValidator.preflightArchive(
                 at: sourceURL,
                 scratchDir: preflightDir,
+                preferredGameRootRelativePath: preferredGameRootRelativePath,
                 shouldCancel: { self.isImportCancelled(importID) }
             )
         } catch ArchiveExtractor.Error.cancelled {
@@ -549,8 +627,7 @@ class GameLibrary {
 
         // Full extraction now runs visibly - progress feeds the
         // committed card's `.importing(progress:)` status.
-        let tmpDir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try fm.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        let tmpDir = try ImportTemporaryDirectory.makeScopedDirectory(kind: .archiveImport, fm: fm)
         defer { try? fm.removeItem(at: tmpDir) }
 
         // Mid-extract artwork surfacing - .exe icon ONLY.
@@ -648,7 +725,15 @@ class GameLibrary {
         }
         guard !isImportCancelled(importID) else { throw ImportCancelled() }
 
-        let gameRoot = GameContainer.findGameRoot(in: tmpDir)
+        let gameRoot = try {
+            if let preferredGameRootRelativePath {
+                return try GameImportValidator.resolveGameRoot(
+                    in: tmpDir,
+                    relativePath: preferredGameRootRelativePath
+                )
+            }
+            return GameImportValidator.locateGameRoot(in: tmpDir) ?? GameContainer.findGameRoot(in: tmpDir)
+        }()
 
         // JGP post-processing: if the archive was a JoiPlay .jgp,
         // parse manifest/configuration/gamepad, reject unsupported

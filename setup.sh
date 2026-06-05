@@ -10,6 +10,15 @@ REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 git -C "$REPO_ROOT" config core.hooksPath .githooks
 echo "Git hooks configured."
 
+echo "Verifying required hook tools..."
+for tool in swift-format swiftlint clang-format bun shfmt shellcheck; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+        echo "Missing required tool: $tool" >&2
+        exit 1
+    fi
+done
+echo "All required hook tools are installed."
+
 # Generate initial GitInfo.generated.swift
 COMMIT=$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 OUT="$REPO_ROOT/ios/Empo/src/App/GitInfo.generated.swift"
