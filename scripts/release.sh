@@ -181,12 +181,12 @@ bun "$REPO_ROOT/scripts/update-altstore-source.ts" \
     --description "$CHANGELOG"
 
 # 9. Commit + tag (signed). Single commit covers the version
-# bump, regenerated xcodeproj, changelog, and altstore-source.json
-# update so the tag points at a tree consistent with the published
-# IPA.
+# bump, changelog, and altstore-source.json update so the tag
+# points at a tree consistent with the published IPA. The
+# generated .xcodeproj stays untracked; project.yml is the source
+# of truth and the repo intentionally ignores XcodeGen output.
 git -C "$REPO_ROOT" add "$PROJECT_YML" \
     "$CHANGELOG_PATH" \
-    "ios/Empo/Empo.xcodeproj/project.pbxproj" \
     "$ALTSTORE_SOURCE"
 git -C "$REPO_ROOT" commit -S -m "chore: bump version to $VERSION (build $BUILD)"
 git -C "$REPO_ROOT" tag -s "v$VERSION" -m "v$VERSION"
