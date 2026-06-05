@@ -64,3 +64,6 @@ node_modules/
 
 # Build outputs (xcodebuild derived data, IPA artifacts).
 build/
+
+# Root-level local object files from ad-hoc builds
+/*.o
