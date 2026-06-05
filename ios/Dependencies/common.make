@@ -880,6 +880,7 @@ RUBY18_CFLAGS = $(TARGETFLAGS) -std=gnu89 -O2 \
 RUBY18_EXTS = zlib stringio strscan digest fcntl
 
 $(LIBDIR)/libruby18-static.a: $(SOURCES)/ruby18/Makefile
+	set -e; \
 	cd $(SOURCES)/ruby18; \
 	$(CONFIGURE_ENV) CFLAGS="$(RUBY18_CFLAGS)" make -j$(NPROC) COMPILE_PRELUDE=true libruby-static.a; \
 	cp libruby-static.a $(LIBDIR)/libruby18-static.a; \
@@ -931,6 +932,7 @@ $(SOURCES)/ruby18/Makefile: $(SOURCES)/ruby18/configure
 		--disable-shared \
 		--enable-static \
 		--with-static-linked-ext; \
+	sed -i '' 's|^MINIRUBY = ruby |MINIRUBY = ruby --disable=gems |' $(SOURCES)/ruby18/Makefile; \
 	touch prelude.c
 	@# Override config.h's RUBY_SETJMP / RUBY_LONGJMP to point at
 	@# our PAC-free arm64 setjmp variant (see mkxp_setjmp_arm64.S).
