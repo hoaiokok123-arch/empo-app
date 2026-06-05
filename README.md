@@ -222,6 +222,25 @@ Issues, ideas, and PRs welcome.
 - Build green on the iOS Simulator before requesting review.
 - Reference any related issue.
 
+**Recommended GitHub branch protection:**
+
+- For `empo-app` `main`, require pull requests and require these status checks to pass:
+- `Lint / Swift (swiftlint + swift-format)`
+- `Lint / ObjC / C / C++ (clang-format)`
+- `Lint / Bash (shellcheck + shfmt)`
+- `Lint / YAML (prettier + yamllint)`
+- `Lint / Markdown (markdownlint)`
+- `Format / Swift (swift-format)`
+- `Format / ObjC / C / C++ (clang-format)`
+- `Format / Bash (shfmt)`
+- `Format / YAML / JSON (prettier)`
+- `Submodule Guard / mkxp-z submodule points to origin/dev`
+- The `Submodule Guard` check is the server-side backstop for the local `pre-push` hook. It blocks merging any `empo-app` commit whose `mkxp-z-apple-mobile` gitlink is not reachable from the submodule repo's configured branch in `.gitmodules` (`dev`).
+- For `mkxp-z-apple-mobile` `dev`, require pull requests and require these status checks to pass:
+- `Lint / Ruby (rubocop)`
+- `Lint / Markdown (markdownlint)`
+- `Format / Ruby (rubocop --autocorrect)`
+
 ## License
 
 [GPLv2+](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html), matching upstream [mkxp-z](https://github.com/mkxp-z/mkxp-z). The full dependency and font license set is surfaced in the app at **Settings → Open-source licenses**.
