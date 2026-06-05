@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: false
+  commands:
+    checks:
+      run: scripts/hooks/pre-commit.sh
+
+pre-push:
+  parallel: false
+  commands:
+    submodule-dev-check:
+      run: scripts/hooks/pre-push.sh

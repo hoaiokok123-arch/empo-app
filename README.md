@@ -118,16 +118,17 @@ A few load-bearing tricks worth flagging if you're poking around:
 
 ```sh
 # Tools
-brew install xcodegen autoconf automake libtool cmake pkg-config
+brew install bun xcodegen autoconf automake libtool cmake pkg-config
 
 # Repo (recursive for submodules)
 git clone --recursive git@github.com:mateo-m/empo-app.git
 cd empo-app
 
-# Wire up the tracked git hooks and seed an initial
-# GitInfo.generated.swift so Xcode has something to compile before
-# your first local commit.
-./setup.sh
+# Install repo-managed hooks for empo-app.
+bun install
+
+# If you'll also commit inside the mkxp submodule, install its hooks too.
+(cd mkxp-z-apple-mobile && bun install)
 
 # Cross-compile third-party deps. Slow on first run, cached after.
 make -C ios/Dependencies -f iphonesimulator.make deps-core
@@ -215,8 +216,9 @@ Issues, ideas, and PRs welcome.
 
 **When opening a PR:**
 
-- Run `./setup.sh` once after cloning so tracked git hooks are installed.
-- Formatting and linting are enforced locally by `.githooks/pre-commit` and again in CI.
+- Run `bun install` once after cloning so LeftHook installs the empo-app hooks.
+- If you will commit inside `mkxp-z-apple-mobile`, also run `(cd mkxp-z-apple-mobile && bun install)`.
+- Formatting and linting are enforced locally by LeftHook and again in CI.
 - Build green on the iOS Simulator before requesting review.
 - Reference any related issue.
 
