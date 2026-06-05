@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.2.0 - 2026-06-05
+
+### Bug Fixes
+
+- Handle pokemon unicode assets and optional web probes ([`3573eb6`](https://github.com/mateo-m/empo-app/commit/3573eb6f1275817f753f2bf7361025575440ba31))
+- Preserve utf-8 script encodings for pokemon ([`1dbcee0`](https://github.com/mateo-m/empo-app/commit/1dbcee02926e1ddf40d38747e9da286b33ec2a24))
+- Avoid Ruby 3 false-positives on legacy RGSS scripts ([`d1adaad`](https://github.com/mateo-m/empo-app/commit/d1adaad93a26308681e4ff31dc544437a17fc2e6))
+- Update mkxp for case-insensitive asset existence checks ([`4043508`](https://github.com/mateo-m/empo-app/commit/404350873695cd8ebf56a4a5c5f113029bf6a1b9))
+- Make Ruby file access case-insensitive on iOS ([`aa473f5`](https://github.com/mateo-m/empo-app/commit/aa473f5632277a8f04dc3683bca6b43b4494032d))
+- Move casefold filesystem fallback into native bindings ([`41ad8be`](https://github.com/mateo-m/empo-app/commit/41ad8be9f85fe3e2dcaa10123d5bc052c13e684c))
+- Force archive choice paths to use monospaced text ([`872cfb2`](https://github.com/mateo-m/empo-app/commit/872cfb25b1b1fe84202d838fbf5aecb486a0337e))
+- Update mkxp for pokemon runtime compatibility ([`47cd912`](https://github.com/mateo-m/empo-app/commit/47cd9125bf6717a3e6560f02b71fdab404489bd2))
+- Update mkxp after default-branch integration ([`9e15b41`](https://github.com/mateo-m/empo-app/commit/9e15b4185a155c3bab5e0b4e07aec1efe31585a2))
+- Repoint mkxp after branch split ([`d83299b`](https://github.com/mateo-m/empo-app/commit/d83299b0ab02f9ac7ca6550ca7985b2931c252f8))
+
+### CI
+
+- Opt into node 24 for js actions to silence node 20 deprecation ([`b167d53`](https://github.com/mateo-m/empo-app/commit/b167d53115850944987c4227c8094152c8d4bd44))
+- Sync AltStore source from GitHub releases ([`8362937`](https://github.com/mateo-m/empo-app/commit/8362937795d4f6f162c4214869dc07ac93c3953f))
+- Notify Discord on published releases ([`67afd53`](https://github.com/mateo-m/empo-app/commit/67afd53768e44e469c29b1e1e03f8ff4942ad0f2))
+
+### Chores
+
+- Add discord invite link ([`9ebe0f7`](https://github.com/mateo-m/empo-app/commit/9ebe0f7c2da4b1054fe450470e8230e99c5a4e87))
+- Update git ignore ([`1bf5ce2`](https://github.com/mateo-m/empo-app/commit/1bf5ce2e6461f6040481a0b38149df28e893cd87))
+- Ignore root object files ([`3d16a2e`](https://github.com/mateo-m/empo-app/commit/3d16a2ec418a1ab455feca9ed7269d7c0dc1ac25))
+- Adopt lefthook guardrails ([`d3a11d4`](https://github.com/mateo-m/empo-app/commit/d3a11d4f62d7c5a722392510949eeade9263db8d))
+
+### Documentation
+
+- Document Graphics.delta timing for Vanguard ([`50d9166`](https://github.com/mateo-m/empo-app/commit/50d9166041b91ae834f32144308c665990eb4332))
+- Add branch protection guidance ([`6956e37`](https://github.com/mateo-m/empo-app/commit/6956e37608ae2afc45b8f20366c48883e7f0cfa2))
+- Drop branch protection guidance ([`fbd1cc7`](https://github.com/mateo-m/empo-app/commit/fbd1cc70d3d3edf90e8d7a465ddf84b86d1f9816))
+
+### Features
+
+- Add pre-commit lint + format gated by file type ([`94d9065`](https://github.com/mateo-m/empo-app/commit/94d90651014a525e14a9d90ed868180203b17d44))
+- Move archive workflow into controller ([`4c9abb1`](https://github.com/mateo-m/empo-app/commit/4c9abb14a5ae28d6d1fb5cf1d81262b661dae52d))
+- Share update status banner across settings and library ([`84530e4`](https://github.com/mateo-m/empo-app/commit/84530e46c978d8aa111851baf2076d373d881f5b))
+
+### Release
+
+- Auto-update altstore-source.json with new ipa size + version ([`0f31e88`](https://github.com/mateo-m/empo-app/commit/0f31e88192050920630bd075838adcd6ce8fbedb))
+- Accept major/minor/patch bump arg, derive version from latest tag ([`b6cb069`](https://github.com/mateo-m/empo-app/commit/b6cb0693f772278e965016e4c15a5a8c6fe2cb2e))
+- Track changelog and generate release notes ([`e334b84`](https://github.com/mateo-m/empo-app/commit/e334b84e08f465fdc527e6d7c4df23d483ee156b))
+
+### UI
+
+- Fix swift-format + markdownlint violations to unblock ci ([`8b2b0fc`](https://github.com/mateo-m/empo-app/commit/8b2b0fce17c4150e8dab3f746a950c03bca489af))
+- Fix yamllint warnings via inline rule disables + folded warning_cflags ([`be8f43e`](https://github.com/mateo-m/empo-app/commit/be8f43e63a9e31fa9fcd9e63b8a1a990a61b22e8))
+
 ## 0.1.0 - 2026-05-07
 
 ### Bug Fixes
