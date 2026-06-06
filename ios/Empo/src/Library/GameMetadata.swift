@@ -123,6 +123,32 @@ struct GameMetadata: Codable {
         if let f = customBannerFilename, !isValidFilename(f) { customBannerFilename = nil }
     }
 
+    /// Refresh the auto-detected Ruby version if this metadata is
+    /// missing one, was produced by older heuristics, or the caller
+    /// wants to force a fresh sniff for the current launch.
+    ///
+    /// `forceRefresh` is used by the game-launch path so upgraded
+    /// installs recover even if the library didn't get a chance to
+    /// rewrite stale metadata before the user boots a game.
+    mutating func refreshDetectedRubyVersion(
+        in container: GameContainer,
+        forceRefresh: Bool = false
+    ) {
+        let currentSchema = RubyVersionDetection.currentSchema.rawValue
+        let needsDetect =
+            forceRefresh
+            || rubyVersion == nil
+            || rubyVersionDetectedSchema != currentSchema
+        guard needsDetect else { return }
+
+        let detectedVersion = RubyVersionDetection.detect(
+            gameDirectory: container.gameURL
+        )
+        rubyVersion = detectedVersion
+        rubyVersionDetectedSchema = currentSchema
+        save(to: container)
+    }
+
     private func isValidFilename(_ name: String) -> Bool {
         !name.isEmpty && !name.contains("/") && !name.contains("\\") && name != "." && name != ".."
     }

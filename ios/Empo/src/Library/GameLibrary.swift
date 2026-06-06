@@ -95,6 +95,7 @@ class GameLibrary {
     private init() {
         ImportTemporaryDirectory.cleanupStaleDirectories()
         ensureGamesDirectory()
+        SaveMigration.migrateAllDiscoveredGamesIfNeeded()
         // Initial scan runs off-main via reload(). The library is
         // observable and empty until the scan completes, which keeps
         // first render of the library instant on cold storage.
@@ -202,32 +203,10 @@ class GameLibrary {
         let iniTitle = GameEntry.parseINITitle(at: container.gameURL) ?? "Unknown Game"
         let defaultArtwork = findArtwork(in: container)
 
+        let settings = GameSettings.load(from: container.empoStateURL)
         var metadata = GameMetadata.load(from: container)
-        // Backfill / refresh rubyVersion. Detection is idempotent
-        // and cheap (file-system sniff); we re-run when:
-        //
-        //   - rubyVersion is nil (legacy import predating the
-        //     field), OR
-        //   - rubyVersionDetectedSchema doesn't match the current
-        //     schema (we taught detection a new signal that may
-        //     re-classify this game, OR an unknown schema string
-        //     is present from a future Empo build that the user
-        //     has since downgraded from; in which case re-running
-        //     with the current heuristics is the safe default).
-        //
-        // The user's manual `rubyVersionOverride` setting takes
-        // precedence at engine-launch time, so re-detection here
-        // never trumps a deliberate user choice.
-        let currentSchema = RubyVersionDetection.currentSchema.rawValue
-        let needsDetect =
-            metadata.rubyVersion == nil
-            || metadata.rubyVersionDetectedSchema != currentSchema
-        if needsDetect {
-            metadata.rubyVersion = RubyVersionDetection.detect(
-                gameDirectory: container.gameURL
-            )
-            metadata.rubyVersionDetectedSchema = currentSchema
-            metadata.save(to: container)
+        if settings.allowsRubyAutoDetectRefresh {
+            metadata.refreshDetectedRubyVersion(in: container)
         }
         // Title priority: user's customTitle > import-time baseTitle
         // (JGP manifest name) > Game.ini title. The `engineTitle`

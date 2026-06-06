@@ -9,6 +9,8 @@ import Foundation
 ///   Documents/Games/<uuid>-<slug>/
 ///   ├── Game/              Imported game files. NEVER written by Empo
 ///   │                      after import - we treat it as read-only.
+///   ├── UserData/          Per-game writable payload (save files,
+///   │                      backups, plugin data), exposed via Files app.
 ///   ├── EmpoState/         Empo-managed state:
 ///   │                        - mkxp.json (generated config; merged
 ///   │                          from Game/mkxp.json + per-game settings)
@@ -59,6 +61,10 @@ struct GameContainer: Equatable, Hashable {
 
     var empoStateURL: URL {
         url.appendingPathComponent("EmpoState", isDirectory: true)
+    }
+
+    var userDataURL: URL {
+        url.appendingPathComponent("UserData", isDirectory: true)
     }
 
     var logsURL: URL {
@@ -182,11 +188,12 @@ struct GameContainer: Equatable, Hashable {
 
     // MARK: - Filesystem side effects
 
-    /// Create the container directory and its four canonical
+    /// Create the container directory and its canonical
     /// subdirs. Idempotent; safe to call repeatedly.
     func ensureSubdirs() throws {
         let fm = FileManager.default
         try fm.createDirectory(at: gameURL, withIntermediateDirectories: true)
+        try fm.createDirectory(at: userDataURL, withIntermediateDirectories: true)
         try fm.createDirectory(at: empoStateURL, withIntermediateDirectories: true)
         try fm.createDirectory(at: logsURL, withIntermediateDirectories: true)
         try fm.createDirectory(at: metadataURL, withIntermediateDirectories: true)
@@ -235,6 +242,11 @@ struct GameContainer: Equatable, Hashable {
             at: url, withIntermediateDirectories: true
         )
         return url
+    }
+
+    @discardableResult
+    func ensureUserDataDirectory() -> URL {
+        Self.ensureDirectory(userDataURL)
     }
 
     @discardableResult

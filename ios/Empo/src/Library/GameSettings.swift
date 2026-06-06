@@ -243,6 +243,13 @@ struct GameSettings: Codable, Equatable {
         return settings
     }
 
+    /// True when both Ruby-related controls are still on Auto, so
+    /// Empo is free to refresh the persisted auto-detected Ruby
+    /// version for this game on upgrade.
+    var allowsRubyAutoDetectRefresh: Bool {
+        rubyVersionOverride == nil && useModernRuby == nil
+    }
+
     /// True if any `RestartFlag`-tagged field differs between `self`
     /// and `other`. The engine reads its config once at RGSS thread
     /// startup and never re-reads, so launch-time fields need a quit

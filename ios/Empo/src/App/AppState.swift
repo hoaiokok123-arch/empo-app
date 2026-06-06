@@ -29,6 +29,7 @@ class AppState {
     var pendingCrashRecovery: Bool { crashTracker.pendingCrashRecovery }
 
     private init() {
+        SaveMigration.migrateAllDiscoveredGamesIfNeeded()
         registerBridgeCallbacks()
     }
 
@@ -41,6 +42,7 @@ class AppState {
 
         guard phase == nil, pauseManager.pausedGame == nil else { return }
         guard let container = game.container else { return }
+        SaveMigration.migrateLegacySavesIfNeeded(for: container)
         selectedGame = game
         sessionHadError = false
         // Bind the controls layout to this game so edits during play
@@ -57,6 +59,7 @@ class AppState {
         // out the per-game tree.
         try? container.ensureSubdirs()
         let gameDir = container.gameURL
+        let userDataDir = container.userDataURL
         let stateDir = container.empoStateURL
 
         // Tell the engine where to find managed config. The engine's
@@ -64,6 +67,7 @@ class AppState {
         // first for mkxp.json and patches.json before falling back
         // to cwd (= the Game/ subdir).
         mkxp_setManagedConfigDir(stateDir.path)
+        mkxp_setUserDataDirectory(userDataDir.path)
 
         let settings = GameSettings.load(from: stateDir)
 
@@ -95,7 +99,15 @@ class AppState {
         //      override nor detection has tagged a value, e.g.
         //      games imported before this field existed if the
         //      backfill hasn't run yet.
-        let metadata = GameMetadata.load(from: container)
+        var metadata = GameMetadata.load(from: container)
+        if settings.allowsRubyAutoDetectRefresh {
+            // Re-run Ruby auto-detection at launch so upgraded installs
+            // recover from stale persisted values even if the library
+            // screen didn't refresh this container yet. Respect any
+            // explicit Ruby-version or compatibility-mode choice by
+            // leaving their last auto-detected value untouched.
+            metadata.refreshDetectedRubyVersion(in: container, forceRefresh: true)
+        }
         let rubyVersionRaw = settings.rubyVersionOverride ?? metadata.rubyVersion
         let rubyVer: MKXPRubyVersion = {
             switch rubyVersionRaw {
