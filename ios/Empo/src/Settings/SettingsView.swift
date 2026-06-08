@@ -453,6 +453,29 @@ private struct RefreshSpinIcon: View {
     }
 }
 
+/// Swipe down to dismiss, used by the library's floating update
+/// banner alongside the X button.
+private struct SwipeDownToDismissModifier: ViewModifier {
+    let enabled: Bool
+    let onDismiss: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if enabled, let onDismiss {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 24, coordinateSpace: .local)
+                    .onEnded { value in
+                        let vertical = value.translation.height
+                        let horizontal = abs(value.translation.width)
+                        guard vertical > 48, vertical > horizontal else { return }
+                        onDismiss()
+                    }
+            )
+        } else {
+            content
+        }
+    }
+}
+
 struct UpdateStatusIndicator: View {
     enum Size {
         case compact
@@ -485,6 +508,7 @@ struct UpdateStatusIndicator: View {
             }
             .geometryGroup()
             .animation(Motion.standard, value: chipPhase)
+            .modifier(SwipeDownToDismissModifier(enabled: canDismiss, onDismiss: onDismiss))
         }
     }
 

@@ -312,6 +312,63 @@ class GameLibrary {
         cancelImport(importID)
     }
 
+    /// Tear down an in-flight import: drop pending/card UI state and
+    /// delete any partial container directory on disk. Shared when
+    /// the user cancels and when the import pipeline errors out so
+    /// orphans don't resurface as Invalid cards on the next scan.
+    @MainActor
+    func abandonImport(importID: String, container: GameContainer?) {
+        _ = pendingImports.removeValue(forKey: importID)
+        let entry = games.first(where: { $0.id == importID })
+        let resolvedContainer =
+            container ?? entry?.container ?? Self.containerOnDisk(importID: importID)
+        removeLibraryEntry(id: importID)
+        Self.deleteContainer(resolvedContainer)
+    }
+
+    /// Remove a library card from memory (artwork cache + `games`).
+    @MainActor
+    private func removeLibraryEntry(id: String) {
+        if let artworkPath = games.first(where: { $0.id == id })?.artworkPath {
+            ImageCache.shared.evict(path: artworkPath)
+        }
+        withAnimation {
+            games.removeAll { $0.id == id }
+        }
+    }
+
+    nonisolated private static func containerOnDisk(importID: String) -> GameContainer? {
+        GameContainer.discover().first { $0.id == importID }
+    }
+
+    /// Recursively delete a game container. `onError` is set for
+    /// user-initiated deletes; import abandon passes nil so a
+    /// failed cleanup stays silent.
+    nonisolated private static func deleteContainer(
+        _ container: GameContainer?,
+        onError: (@MainActor @Sendable (String) -> Void)? = nil
+    ) {
+        guard let container else { return }
+        Task.detached(priority: .userInitiated) {
+            do {
+                let fm = FileManager.default
+                guard fm.fileExists(atPath: container.url.path) else { return }
+                // One rm -rf nukes Game/, EmpoState/, Logs/, and
+                // Metadata/ together - per-game saves, settings,
+                // logs, custom artwork, and crash markers all go
+                // in a single call.
+                try container.deleteAll()
+            } catch {
+                NSLog("[GameLibrary] Delete error: %@", "\(error)")
+                guard let onError else { return }
+                await MainActor.run {
+                    GameLibrary.shared.reload()
+                    onError(error.localizedDescription)
+                }
+            }
+        }
+    }
+
     func importGame(
         from sourceURL: URL,
         preferredGameRootRelativePath: String? = nil,
@@ -382,16 +439,14 @@ class GameLibrary {
                 markNotInFlight()
                 NSLog("[GameLibrary] Import cancelled: %@", importID)
                 await MainActor.run {
-                    _ = GameLibrary.shared.pendingImports.removeValue(forKey: importID)
-                    GameLibrary.shared.games.removeAll { $0.id == importID }
+                    GameLibrary.shared.abandonImport(importID: importID, container: nil)
                 }
             } catch {
                 markNotInFlight()
                 NSLog("[GameLibrary] Import error: %@", "\(error)")
                 let surfaced: Error = Self.isOutOfSpace(error) ? ImportError.outOfSpace : error
                 await MainActor.run {
-                    _ = GameLibrary.shared.pendingImports.removeValue(forKey: importID)
-                    GameLibrary.shared.games.removeAll { $0.id == importID }
+                    GameLibrary.shared.abandonImport(importID: importID, container: nil)
                     completion(surfaced)
                 }
             }
@@ -542,15 +597,15 @@ class GameLibrary {
         // path below cleans up.
         updateCardProgress(importID, 1.0)
 
-        try fm.createDirectory(at: container.url, withIntermediateDirectories: true)
-        try fm.moveItem(at: gameRoot, to: container.gameURL)
-
         var committed = false
         defer {
             if !committed {
                 try? container.deleteAll()
             }
         }
+
+        try fm.createDirectory(at: container.url, withIntermediateDirectories: true)
+        try fm.moveItem(at: gameRoot, to: container.gameURL)
 
         if isImportCancelled(importID) { throw ImportCancelled() }
 
@@ -604,6 +659,13 @@ class GameLibrary {
         commitPendingToCard(
             importID, container: container,
             title: title, artworkPath: nil)
+
+        var committed = false
+        defer {
+            if !committed {
+                try? container.deleteAll()
+            }
+        }
 
         // Full extraction now runs visibly - progress feeds the
         // committed card's `.importing(progress:)` status.
@@ -733,13 +795,6 @@ class GameLibrary {
         // unchanged because Metadata/ is a sibling of Game/.
         try fm.createDirectory(at: container.url, withIntermediateDirectories: true)
         try fm.moveItem(at: gameRoot, to: container.gameURL)
-
-        var committed = false
-        defer {
-            if !committed {
-                try? container.deleteAll()
-            }
-        }
 
         if isImportCancelled(importID) { throw ImportCancelled() }
         if let bundle = jgpBundle {
@@ -917,46 +972,15 @@ class GameLibrary {
     }
 
     func deleteGame(_ entry: GameEntry, onError: (@MainActor @Sendable (String) -> Void)? = nil) {
-        let wasImporting = entry.isImporting
-
-        if let artworkPath = entry.artworkPath {
-            ImageCache.shared.evict(path: artworkPath)
-        }
-
-        withAnimation {
-            games.removeAll { $0.id == entry.id }
-        }
-
-        if wasImporting {
+        if entry.isImporting {
             cancelImport(entry.id)
-            // In-flight imports may have partially-created container
-            // dirs; clean them up if present (no-op when nothing
-            // landed on disk yet).
-            if let container = entry.container {
-                Task.detached(priority: .userInitiated) {
-                    try? container.deleteAll()
-                }
-            }
+            abandonImport(importID: entry.id, container: entry.container)
             return
         }
 
-        guard let container = entry.container else { return }
-        Task.detached(priority: .userInitiated) {
-            do {
-                guard FileManager.default.fileExists(atPath: container.url.path) else { return }
-                // One rm -rf nukes Game/, EmpoState/, Logs/, and
-                // Metadata/ together - per-game saves, settings,
-                // logs, custom artwork, and crash markers all go
-                // in a single call.
-                try container.deleteAll()
-            } catch {
-                NSLog("[GameLibrary] Delete error: %@", "\(error)")
-                await MainActor.run {
-                    GameLibrary.shared.reload()
-                    onError?(error.localizedDescription)
-                }
-            }
-        }
+        let container = entry.container
+        removeLibraryEntry(id: entry.id)
+        Self.deleteContainer(container, onError: onError)
     }
 
     nonisolated private static func findArtwork(in container: GameContainer) -> String? {

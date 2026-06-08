@@ -505,6 +505,16 @@ struct GameLibraryView: View {
                     game: pending,
                     onStopImport: { showCancelValidationAlert = true }
                 )
+                .gameContextMenu(
+                    game: pending,
+                    appState: appState,
+                    onPlay: {},
+                    onCancelImport: { showCancelValidationAlert = true },
+                    gameToDelete: $gameToDelete,
+                    showDeleteConfirm: $showDeleteConfirm,
+                    gameForSettings: $gameForSettings,
+                    gameForInfo: $gameForInfo
+                )
                 .id("\(pending.id)-pending")
                 .transition(.cardAppear)
             }
@@ -532,6 +542,16 @@ struct GameLibraryView: View {
                 onStopImport: { showCancelValidationAlert = true }
             )
             .cardShadow()
+            .gameContextMenu(
+                game: pending,
+                appState: appState,
+                onPlay: {},
+                onCancelImport: { showCancelValidationAlert = true },
+                gameToDelete: $gameToDelete,
+                showDeleteConfirm: $showDeleteConfirm,
+                gameForSettings: $gameForSettings,
+                gameForInfo: $gameForInfo
+            )
             .id("\(pending.id)-pending")
             .transition(.cardAppear)
         }
@@ -575,6 +595,11 @@ struct GameLibraryView: View {
             game: game,
             appState: appState,
             onPlay: { handleGameTap(game, from: .item) },
+            onCancelImport: game.isImporting
+                ? {
+                    gameToDelete = game
+                    showDeleteConfirm = true
+                } : nil,
             onSelect: selectionMode ? nil : { enterSelectionMode(seedingWith: game.id) },
             gameToDelete: $gameToDelete,
             showDeleteConfirm: $showDeleteConfirm,
@@ -597,6 +622,19 @@ struct GameLibraryView: View {
                 }
             )
             .cardShadow()
+            .gameContextMenu(
+                game: game,
+                appState: appState,
+                onPlay: {},
+                onCancelImport: {
+                    gameToDelete = game
+                    showDeleteConfirm = true
+                },
+                gameToDelete: $gameToDelete,
+                showDeleteConfirm: $showDeleteConfirm,
+                gameForSettings: $gameForSettings,
+                gameForInfo: $gameForInfo
+            )
             .id("\(game.id)-importing")
             .transition(.cardAppear)
             .staggered(index: index, trigger: staggerTrigger, initialDelay: entranceDelay)
