@@ -25,6 +25,15 @@
       ],
       "versions": [
         {
+          "version": "0.2.3",
+          "buildVersion": "361",
+          "date": "2026-06-08",
+          "localizedDescription": "### Bug Fixes\n\n- Cache compatibility auto-detect and re-sniff on reset ([`38512ec`](https://github.com/mateo-m/empo-app/commit/38512ec4873601de3b7ae782d650e3da48a5f6ac))\n- Clean up failed imports and improve import UX ([`e7110d7`](https://github.com/mateo-m/empo-app/commit/e7110d7716a75a7f43e98c78a25fccca4453614b))\n- Improve update banner dismiss and interactions ([`eca9cbd`](https://github.com/mateo-m/empo-app/commit/eca9cbd63a1dfdec9b6c57f81f222222fb7da58d))",
+          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.3/Empo-0.2.3-unsigned.ipa",
+          "size": 19673980,
+          "minOSVersion": "26.0"
+        },
+        {
           "version": "0.2.2",
           "buildVersion": "356",
           "date": "2026-06-08",
