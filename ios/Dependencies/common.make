@@ -360,7 +360,7 @@ $(SOURCES)/freetype/builds/unix/configure: $(SOURCES)/freetype/autogen.sh
 	cd $(SOURCES)/freetype; ./autogen.sh
 
 # Ruby 3.1 (submodule: sources/ruby)
-ruby: init_dirs $(LIBDIR)/libruby.3.1-static.a $(LIBDIR)/libruby.3.1-ext.a
+ruby: init_dirs openssl $(LIBDIR)/libruby.3.1-static.a $(LIBDIR)/libruby.3.1-ext.a
 
 $(LIBDIR)/libruby.3.1-static.a: $(SOURCES)/ruby/Makefile
 	cd $(SOURCES)/ruby; \
@@ -413,13 +413,14 @@ $(LIBDIR)/libruby.3.1-ext.a: $(LIBDIR)/libruby.3.1-static.a
 	$(AR) d $(LIBDIR)/libruby.3.1-static.a dmyext.o dmyenc.o || true
 	$(RANLIB) $(LIBDIR)/libruby.3.1-static.a
 
-$(SOURCES)/ruby/Makefile: $(SOURCES)/ruby/configure
+$(SOURCES)/ruby/Makefile: $(SOURCES)/ruby/configure $(LIBDIR)/libcrypto.a
 	cd $(SOURCES)/ruby; \
 	export $(CONFIGURE_ENV); \
 	export CFLAGS="-std=gnu99 -DRUBY_FUNCTION_NAME_STRING=__func__ $$CFLAGS"; \
 	export LDFLAGS="$$LDFLAGS"; \
 	./configure $(CONFIGURE_ARGS) $(RUBY_CONFIGURE_ARGS) \
 	--with-baseruby=/usr/bin/ruby \
+	--with-openssl-dir="$(BUILD_PREFIX)" \
 	ac_cv_func_setpgrp_void=yes \
 	ac_cv_func_fork=no \
 	ac_cv_func_dup3=no \
