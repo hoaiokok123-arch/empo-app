@@ -38,7 +38,7 @@
           "buildVersion": "367",
           "date": "2026-06-09",
           "localizedDescription": "### Bug Fixes\n\n- Harden device deps pipeline and error alert handling ([`40d1a4c`](https://github.com/mateo-m/empo-app/commit/40d1a4c1299f51d807481520364e0e34dc728229))\n- Patch Ruby 1.8 cross-compile fake template ([`ab208a3`](https://github.com/mateo-m/empo-app/commit/ab208a38f24cdfb33917696e75675282a3ba8814))\n- Fix Ruby 1.8 cross-compile on modern macOS hosts ([`c6f7bbc`](https://github.com/mateo-m/empo-app/commit/c6f7bbc8e24a1d04e741c7ebda3f70820e6cb3ab))\n- Point Ruby 3.1 openssl ext at device OpenSSL ([`54b0fca`](https://github.com/mateo-m/empo-app/commit/54b0fcae3dab078e9b420abf11f1d1d6d8374c9b))",
-          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.4/Empo-0.2.4-unsigned.ipa",
+          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.4-r1/Empo-0.2.4-unsigned.ipa",
           "size": 20856066,
           "minOSVersion": "26.0"
         },
@@ -47,7 +47,7 @@
           "buildVersion": "361",
           "date": "2026-06-08",
           "localizedDescription": "### Bug Fixes\n\n- Cache compatibility auto-detect and re-sniff on reset ([`0bcb3f5`](https://github.com/mateo-m/empo-app/commit/0bcb3f56bc8075611c37796cf91e5d95e3b02e27))\n- Clean up failed imports and improve import UX ([`90e8622`](https://github.com/mateo-m/empo-app/commit/90e8622d2d90885e64b8007ee35312b7d191b12e))\n- Improve update banner dismiss and interactions ([`c2fa359`](https://github.com/mateo-m/empo-app/commit/c2fa359d5c3df7017bbab2934bf298cde8ac7244))",
-          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.3/Empo-0.2.3-unsigned.ipa",
+          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.3-r1/Empo-0.2.3-unsigned.ipa",
           "size": 19673980,
           "minOSVersion": "26.0"
         },
@@ -56,7 +56,7 @@
           "buildVersion": "356",
           "date": "2026-06-08",
           "localizedDescription": "### Bug Fixes\n\n- Update mkxp for exact-path bitmap resolution ([`f987a76`](https://github.com/mateo-m/empo-app/commit/f987a7678802c189d6e90caa70a3a1c922329043))\n\n### Features\n\n- Check at launch and add manual refresh control ([`37f70ee`](https://github.com/mateo-m/empo-app/commit/37f70eed3537bafa8aca4caeaaadeb8c44dfba18))\n\n### Release\n\n- Sync altstore source in release script ([`0ebe322`](https://github.com/mateo-m/empo-app/commit/0ebe3222261b02e84a09b1a5d5d44b49e2665ab2))",
-          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.2/Empo-0.2.2-unsigned.ipa",
+          "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.2-r1/Empo-0.2.2-unsigned.ipa",
           "size": 19663791,
           "minOSVersion": "26.0"
         },
