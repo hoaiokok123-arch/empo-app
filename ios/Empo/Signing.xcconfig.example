@@ -7,8 +7,12 @@
 //
 // To find your team ID:
 //   Xcode > Settings > Accounts > (your Apple ID) > Manage Certificates
-//   Or: System Settings > Apple ID, then look for the membership details.
+//   Or: developer.apple.com/account > Membership details
 //   A free personal Apple ID also works for on-device development.
+//
+// Optional: override PRODUCT_BUNDLE_IDENTIFIER here when your personal
+// team cannot register the shipping bundle ID (use a *.dev suffix).
 //
 // Uncomment and fill in:
 // DEVELOPMENT_TEAM = YOUR10CHARID
+// PRODUCT_BUNDLE_IDENTIFIER = sh.mateo.empo.dev

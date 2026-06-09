@@ -3,8 +3,26 @@ new file mode 100644
 index 0000000000..260248db1a
 --- /dev/null
 +++ b/aarch64-darwin-fake.rb
-@@ -0,0 +1,15 @@
+@@ -0,0 +1,33 @@
++baseruby="ruby"
++ruby="${RUBY-$baseruby}"
++"eval" "{" \
++"`expr \"$ruby\" : echo > /dev/null || echo exec`" \
++"$ruby" '-r"`expr \"$0\" : / > /dev/null || pwd`/${0#/}" "$@";' \
++"}" || "exit" "$?"
++ruby=ruby
++# Pre-load rbconfig + fileutils via the host ruby's stdlib BEFORE we
++# overwrite RUBY_VERSION. Without this, mkconfig.rb fails with
++# "ruby lib version doesn't match executable version" because the
++# host (e.g. system ruby 2.6) tries to load its own rbconfig after
++# fake.rb has already redefined the constant to 1.8.8.
++__saved_load_path = $LOAD_PATH.dup
++$LOAD_PATH.reject! { |p| p == '.' || p == '' || File.expand_path(p) == File.expand_path('.') }
++require 'rbconfig'
++require 'fileutils'
++$LOAD_PATH.replace(__saved_load_path)
 +class Object
++  remove_const :CROSS_COMPILING if defined?(CROSS_COMPILING)
 +  CROSS_COMPILING = RUBY_PLATFORM
 +  remove_const :RUBY_PLATFORM
 +  remove_const :RUBY_VERSION

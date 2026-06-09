@@ -4,6 +4,21 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>JoiPlay Archive</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>cyou.joiplay.jgp</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -18,16 +33,28 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsGameMode</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Game controllers may connect over Bluetooth.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo to use as custom game artwork or banner.</string>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>arm64</string>
 	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Game controllers may connect over Bluetooth.</string>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -37,29 +64,17 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>UIApplicationSupportsIndirectInputEvents</key>
-	<true/>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
-	<key>UILaunchScreen</key>
-	<dict/>
-	<key>NSCameraUsageDescription</key>
-	<string>Take a photo to use as custom game artwork or banner.</string>
-	<key>LSSupportsGameMode</key>
-	<true/>
 	<key>UTExportedTypeDeclarations</key>
 	<array>
 		<dict>
-			<key>UTTypeIdentifier</key>
-			<string>cyou.joiplay.jgp</string>
-			<key>UTTypeDescription</key>
-			<string>JoiPlay Archive</string>
 			<key>UTTypeConformsTo</key>
 			<array>
 				<string>public.zip-archive</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>JoiPlay Archive</string>
+			<key>UTTypeIdentifier</key>
+			<string>cyou.joiplay.jgp</string>
 			<key>UTTypeTagSpecification</key>
 			<dict>
 				<key>public.filename-extension</key>
@@ -67,21 +82,6 @@
 					<string>jgp</string>
 				</array>
 			</dict>
-		</dict>
-	</array>
-	<key>CFBundleDocumentTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeName</key>
-			<string>JoiPlay Archive</string>
-			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
-			<key>LSHandlerRank</key>
-			<string>Owner</string>
-			<key>LSItemContentTypes</key>
-			<array>
-				<string>cyou.joiplay.jgp</string>
-			</array>
 		</dict>
 	</array>
 </dict>

@@ -85,10 +85,12 @@ class AppWindow: UIWindow {
     // use keyboard input, not mouse/touch.
 
     /// In library/loading: this window must be key for SwiftUI.
-    /// In player: SDL needs key; unless keyboard mode is active.
+    /// In player: SDL needs key; unless keyboard mode is active or
+    /// an error alert is presenting (SDL would steal OK taps).
     override var canBecomeKey: Bool {
-        let phase = AppState.shared.phase
-        if phase != .playing { return true }
+        let state = AppState.shared
+        if state.errorMessage != nil { return true }
+        if state.phase != .playing { return true }
         return allowKeyWindow
     }
 

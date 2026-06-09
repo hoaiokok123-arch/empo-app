@@ -98,8 +98,13 @@ settings:
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: YES # yamllint disable-line rule:truthy
   configs:
+    Debug:
+      # Local device installs: use a dev bundle ID a personal team can
+      # register. Override in the gitignored Signing.xcconfig if needed.
+      PRODUCT_BUNDLE_IDENTIFIER: sh.mateo.empo.dev
     Release:
       OTHER_CFLAGS: "-fdeclspec -O3"
+      PRODUCT_BUNDLE_IDENTIFIER: sh.mateo.empo
 targets:
   Empo:
     type: application
@@ -314,19 +319,14 @@ targets:
         type: folder
         buildPhase: resources
     # Code signing is configured via a local, untracked xcconfig
-    # (Signing.xcconfig at the repo root of this target) so contributors
-    # can each drop in their own Apple Developer team ID without
-    # touching the project file. See Signing.xcconfig.example for the
-    # expected format. xcodegen will still generate a working project
-    # if the file is absent; the build then fails at signing time with
-    # a clear "no team selected" error rather than quietly signing
-    # under someone else's identity.
+    # (Signing.xcconfig in this directory) so each machine can set
+    # DEVELOPMENT_TEAM and optionally override PRODUCT_BUNDLE_IDENTIFIER
+    # without touching the project file. See Signing.xcconfig.example.
     configFiles:
       Debug: Signing.xcconfig
       Release: Signing.xcconfig
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: sh.mateo.empo
         INFOPLIST_FILE: $(PROJECT_DIR)/Info.plist
         PRODUCT_NAME: Empo
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

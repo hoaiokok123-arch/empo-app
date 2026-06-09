@@ -12,6 +12,12 @@ usage() {
     echo "usage: $0 <bump>"
     echo "  bump   major | minor | patch     bump latest tag's segment"
     echo "         <semver>                  explicit version (e.g. 0.1.0)"
+    echo ""
+    echo "Every release run:"
+    echo "  1. clean-rebuilds ios/Dependencies (iphoneos)"
+    echo "  2. verifies native artifacts"
+    echo "  3. bumps version, tags, builds Empo.app + IPA"
+    echo "  4. audits the shipped binary before publishing"
     exit 1
 }
 
@@ -73,21 +79,27 @@ if ! git -C "$REPO_ROOT" diff --quiet HEAD; then
     exit 1
 fi
 
-# 2. Bump MARKETING_VERSION in project.yml
+# 2. Clean-rebuild and verify all iphoneos native deps. Release never
+# links against stale mkxp merged objects or silently broken Ruby archives.
+echo "==> rebuilding device native deps (this takes a while)"
+"$REPO_ROOT/scripts/rebuild-device-deps.sh"
+"$REPO_ROOT/scripts/verify-device-deps.sh"
+
+# 3. Bump MARKETING_VERSION in project.yml
 sed -i '' "s/MARKETING_VERSION: .*/MARKETING_VERSION: $VERSION/" "$PROJECT_YML"
 
-# 3. Inject CURRENT_PROJECT_VERSION from commit count
+# 4. Inject CURRENT_PROJECT_VERSION from commit count
 BUILD=$(git -C "$REPO_ROOT" rev-list --count HEAD)
 sed -i '' "s/CURRENT_PROJECT_VERSION: .*/CURRENT_PROJECT_VERSION: $BUILD/" "$PROJECT_YML"
 
 echo "    version: $VERSION, build: $BUILD"
 
-# 4. Regenerate Xcode project
+# 5. Regenerate Xcode project
 cd "$PROJECT_DIR"
 /opt/homebrew/bin/xcodegen generate --spec project.yml --project . --quiet
 cd "$REPO_ROOT"
 
-# 5. Ad-hoc sign with our entitlements file so the Mach-O has an
+# 6. Ad-hoc sign with our entitlements file so the Mach-O has an
 # entitlements blob embedded. Sideloaders that resign the IPA
 # (AltStore, Sideloadly, ESign, Feather) read this blob as their
 # template; without it some resigners synthesize an incomplete
@@ -105,7 +117,7 @@ cd "$REPO_ROOT"
 # concept (restricts JIT/dyld/debugger), and setting it on an
 # iOS binary makes dyld refuse to load the Mach-O at app
 # launch, producing a black screen on startup.
-# 6. Generate release notes before the version-bump commit so
+# 7. Generate release notes before the version-bump commit so
 # `--unreleased --tag` covers everything since the previous tag
 # under the version we're about to ship. After prepending the entry to
 # CHANGELOG.md, re-read that section back out so every downstream
@@ -136,7 +148,7 @@ fi
 
 RELEASE_NOTES=$(printf "## What's changed\n\n%s\n\n---\n> Unsigned build - resign with [SideStore](https://sidestore.io), AltStore, or Sideloadly before installing." "$CHANGELOG")
 
-# 7. Commit + tag (signed). Tag the release metadata first so the IPA
+# 8. Commit + tag (signed). Tag the release metadata first so the IPA
 # build below runs from a clean tree and bakes the release commit hash
 # into GitInfo instead of the pre-release parent plus a dirty marker.
 # AltStore metadata is synced locally after the IPA is built, then
@@ -147,9 +159,10 @@ git -C "$REPO_ROOT" add "$PROJECT_YML" \
 git -C "$REPO_ROOT" commit -S -m "chore: bump version to $VERSION (build $BUILD)"
 git -C "$REPO_ROOT" tag -s "v$VERSION" -m "v$VERSION"
 
-# 8. Build unsigned .ipa from the clean release commit.
+# 9. Build unsigned .ipa from the clean release commit.
 echo "==> building unsigned ipa"
 BUILD_DIR="$PROJECT_DIR/build/Release-iphoneos"
+rm -rf "$BUILD_DIR"
 xcodebuild \
     -project "$PROJECT_DIR/Empo.xcodeproj" \
     -target Empo \
@@ -166,6 +179,8 @@ if [[ ! -d "$APP_PATH" ]]; then
     exit 1
 fi
 
+"$REPO_ROOT/scripts/audit-ipa.sh" --version "$VERSION" "$APP_PATH"
+
 echo "==> ad-hoc signing with entitlements"
 codesign --force --sign - \
     --generate-entitlement-der \
@@ -181,7 +196,7 @@ IPA_PATH="$IPA_DIR/$IPA_NAME"
 IPA_SIZE=$(stat -f%z "$IPA_PATH")
 echo "    ipa: $IPA_PATH ($IPA_SIZE bytes)"
 
-# 9. Update AltStore source from the locally-built artifact so the
+# 10. Update AltStore source from the locally-built artifact so the
 # manifest lands through the same signed release flow as every other
 # release metadata change.
 echo "==> updating altstore source"
@@ -216,12 +231,12 @@ if ! git -C "$REPO_ROOT" diff --cached --quiet; then
     git -C "$REPO_ROOT" commit -S -m "sync AltStore source for v$VERSION"
 fi
 
-# 10. Push
+# 11. Push
 echo "==> pushing to origin"
 git -C "$REPO_ROOT" push origin main
 git -C "$REPO_ROOT" push origin "v$VERSION"
 
-# 11. Create GitHub release
+# 12. Create GitHub release
 echo "==> creating github release"
 gh release create "v$VERSION" \
     --title "v$VERSION" \

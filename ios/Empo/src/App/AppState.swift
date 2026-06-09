@@ -448,8 +448,14 @@ class AppState {
             { msg, _ in
                 guard let msg else { return }
                 let message = String(cString: msg)
-                Task { @MainActor in
+                // Always async: this callback can fire from inside SDL's
+                // event handler on the main thread. Synchronous UIKit /
+                // SwiftUI updates there re-enter UIKit while SDL is
+                // dispatching and have crashed the process to the
+                // home screen.
+                DispatchQueue.main.async {
                     AppState.shared.errorMessage = message
+                    AppWindow.setAllowKeyWindow(true)
                 }
             }, nil)
 

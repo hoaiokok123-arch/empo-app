@@ -41,6 +41,8 @@ struct RootView: View {
                 PlayerView(appState: appState, engineState: engineState, layout: layout)
                     .transition(.identity)
                     .zIndex(1)
+                    // Don't intercept taps meant for the error alert.
+                    .allowsHitTesting(appState.errorMessage == nil)
             }
         }
         .fontDesign(.rounded)
@@ -142,6 +144,16 @@ struct RootView: View {
                 // Re-create the crash marker so a crash after resume is
                 // still detected on the next launch.
                 appState.restoreCrashMarkerForForeground()
+            }
+        }
+        .onChange(of: appState.errorMessage) { _, message in
+            // While playing, SDL owns the key window so touches reach
+            // the game view instead of SwiftUI alerts. Steal key status
+            // for the error dialog; release when dismissed.
+            if message != nil {
+                AppWindow.setAllowKeyWindow(true)
+            } else if appState.phase == .playing {
+                AppWindow.setAllowKeyWindow(false)
             }
         }
     }
