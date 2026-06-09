@@ -170,6 +170,7 @@ xcodebuild \
     -arch arm64 \
     -configuration Release \
     CODE_SIGNING_ALLOWED=NO \
+    PRODUCT_BUNDLE_IDENTIFIER=sh.mateo.empo \
     CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
     build 2>&1 | grep -E "^(Build|error:|warning: |CompileSwift|Ld )" || true
 
