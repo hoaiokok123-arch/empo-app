@@ -11,13 +11,13 @@ else
 LD_PLATFORM := ios
 endif
 LD_PLATFORM_VERSION := -platform_version $(LD_PLATFORM) $(MINIMUM_REQUIRED) $(SDK_VERSION)
-BUILD_PREFIX := ${PWD}/build-$(SDK)-$(ARCH)
+BUILD_PREFIX := $(CURDIR)/build-$(SDK)-$(ARCH)
 LIBDIR := $(BUILD_PREFIX)/lib
 INCLUDEDIR := $(BUILD_PREFIX)/include
-DOWNLOADS := ${PWD}/downloads/$(HOST)
-SOURCES := ${PWD}/sources
-PATCHES := ${PWD}
-ENGINE := ${PWD}/../../mkxp-z-apple-mobile
+DOWNLOADS := $(CURDIR)/downloads/$(HOST)
+SOURCES := $(CURDIR)/sources
+PATCHES := $(CURDIR)
+ENGINE := $(CURDIR)/../../mkxp-z-apple-mobile
 NPROC := $(shell sysctl -n hw.ncpu)
 CFLAGS := -I$(INCLUDEDIR) -I$(INCLUDEDIR)/freetype2 $(TARGETFLAGS) -O3
 CXXFLAGS := $(CFLAGS)
@@ -512,7 +512,7 @@ MKXPZ_INCLUDES_31 := \
     -I$(INCLUDEDIR)/uchardet \
     -I$(INCLUDEDIR)/freetype2 \
     -I$(INCLUDEDIR) \
-    -I${PWD}/ANGLE/$(SDK)/include
+    -I$(CURDIR)/ANGLE/$(SDK)/include
 
 MKXPZ_DEFINES_31 := \
     -DMKXPZ_BUILD_XCODE \
@@ -530,7 +530,7 @@ MKXPZ_DEFINES_31 := \
 
 $(LIBDIR)/mkxp31-merged.o: $(LIBDIR)/libruby.3.1-static.a \
                           $(LIBDIR)/libruby.3.1-ext.a \
-                          ${PWD}/multiruby/wrapper.cpp
+                          $(CURDIR)/multiruby/wrapper.cpp
 	@echo "[mkxp31] Compiling binding/*.cpp + hmode7/*.cpp against Ruby 3.1..."
 	@mkdir -p $(BINDING_OBJDIR_31)
 	@for src in $(ENGINE)/binding/*.cpp $(ENGINE)/hmode7/src/*.cpp; do \
@@ -546,10 +546,10 @@ $(LIBDIR)/mkxp31-merged.o: $(LIBDIR)/libruby.3.1-static.a \
 	    -std=c++14 -fdeclspec -O3 \
 	    -DMULTIRUBY_SUFFIX=_31 \
 	    $(MKXPZ_INCLUDES_31) \
-	    -c ${PWD}/multiruby/wrapper.cpp \
+	    -c $(CURDIR)/multiruby/wrapper.cpp \
 	    -o $(BINDING_OBJDIR_31)/_multiruby_wrapper.o
 	@echo "[mkxp31] Generating unexport list..."
-	${PWD}/tools/generate-ruby-unexports.sh \
+	$(CURDIR)/tools/generate-ruby-unexports.sh \
 	    $(LIBDIR)/libruby.3.1-static.a $(LIBDIR)/libruby.3.1-ext.a \
 	    > $(BUILD_PREFIX)/ruby31-unexports.txt.raw
 	@nm -gU $(BINDING_OBJDIR_31)/*.o 2>/dev/null \
@@ -616,7 +616,7 @@ MKXPZ_INCLUDES_19 := \
     -I$(INCLUDEDIR)/uchardet \
     -I$(INCLUDEDIR)/freetype2 \
     -I$(INCLUDEDIR) \
-    -I${PWD}/ANGLE/$(SDK)/include
+    -I$(CURDIR)/ANGLE/$(SDK)/include
 
 MKXPZ_DEFINES_19 := \
     -DMKXPZ_BUILD_XCODE \
@@ -654,7 +654,7 @@ MKXPZ_INCLUDES_18 := \
     -I$(INCLUDEDIR)/uchardet \
     -I$(INCLUDEDIR)/freetype2 \
     -I$(INCLUDEDIR) \
-    -I${PWD}/ANGLE/$(SDK)/include \
+    -I$(CURDIR)/ANGLE/$(SDK)/include \
     -I$(INCLUDEDIR)/ruby18
 
 MKXPZ_DEFINES_18 := \
@@ -672,7 +672,7 @@ MKXPZ_DEFINES_18 := \
 
 $(LIBDIR)/mkxp19-merged.o: $(LIBDIR)/libruby19-static.a \
                           $(LIBDIR)/libruby19-ext.a \
-                          ${PWD}/multiruby/wrapper.cpp
+                          $(CURDIR)/multiruby/wrapper.cpp
 	@echo "[mkxp19] Compiling binding/*.cpp + hmode7/*.cpp against Ruby 1.9..."
 	@mkdir -p $(BINDING_OBJDIR_19)
 	@for src in $(ENGINE)/binding/*.cpp $(ENGINE)/hmode7/src/*.cpp; do \
@@ -688,15 +688,15 @@ $(LIBDIR)/mkxp19-merged.o: $(LIBDIR)/libruby19-static.a \
 	    -std=c++14 -fdeclspec -O3 \
 	    -DMULTIRUBY_SUFFIX=_19 \
 	    $(MKXPZ_INCLUDES_19) \
-	    -c ${PWD}/multiruby/wrapper.cpp \
+	    -c $(CURDIR)/multiruby/wrapper.cpp \
 	    -o $(BINDING_OBJDIR_19)/_multiruby_wrapper.o
 	@echo "[mkxp19] Generating unexport list..."
-	${PWD}/tools/generate-ruby-unexports.sh \
+	$(CURDIR)/tools/generate-ruby-unexports.sh \
 	    $(LIBDIR)/libruby19-static.a \
 	    > $(BUILD_PREFIX)/ruby19-unexports.txt
 	@# Also include ext.a's exports (Init_zlib etc.) so they don't
 	@# leak across merged.o boundaries.
-	${PWD}/tools/generate-ruby-unexports.sh \
+	$(CURDIR)/tools/generate-ruby-unexports.sh \
 	    $(LIBDIR)/libruby19-ext.a \
 	    >> $(BUILD_PREFIX)/ruby19-unexports.txt
 	@nm -gU $(BINDING_OBJDIR_19)/*.o 2>/dev/null \
@@ -722,7 +722,7 @@ $(LIBDIR)/mkxp19-merged.o: $(LIBDIR)/libruby19-static.a \
 
 $(LIBDIR)/mkxp18-merged.o: $(LIBDIR)/libruby18-static.a \
                           $(LIBDIR)/libruby18-ext.a \
-                          ${PWD}/multiruby/wrapper.cpp
+                          $(CURDIR)/multiruby/wrapper.cpp
 	@echo "[mkxp18] Compiling binding/*.cpp + hmode7/*.cpp against Ruby 1.8..."
 	@mkdir -p $(BINDING_OBJDIR_18)
 	@for src in $(ENGINE)/binding/*.cpp $(ENGINE)/hmode7/src/*.cpp; do \
@@ -738,15 +738,15 @@ $(LIBDIR)/mkxp18-merged.o: $(LIBDIR)/libruby18-static.a \
 	    -std=c++14 -fdeclspec -O3 \
 	    -DMULTIRUBY_SUFFIX=_18 \
 	    $(MKXPZ_INCLUDES_18) \
-	    -c ${PWD}/multiruby/wrapper.cpp \
+	    -c $(CURDIR)/multiruby/wrapper.cpp \
 	    -o $(BINDING_OBJDIR_18)/_multiruby_wrapper.o
 	@echo "[mkxp18] Generating unexport list..."
-	${PWD}/tools/generate-ruby-unexports.sh \
+	$(CURDIR)/tools/generate-ruby-unexports.sh \
 	    $(LIBDIR)/libruby18-static.a \
 	    > $(BUILD_PREFIX)/ruby18-unexports.txt
 	@# Also include ext.a's exports (Init_zlib etc.) in the
 	@# unexport list so they don't leak across merged.o boundaries.
-	${PWD}/tools/generate-ruby-unexports.sh \
+	$(CURDIR)/tools/generate-ruby-unexports.sh \
 	    $(LIBDIR)/libruby18-ext.a \
 	    >> $(BUILD_PREFIX)/ruby18-unexports.txt
 	@nm -gU $(BINDING_OBJDIR_18)/*.o 2>/dev/null \
@@ -826,7 +826,7 @@ $(LIBDIR)/libruby19-static.a: $(SOURCES)/ruby19/Makefile
 	@# without rebuilding the rest of Ruby. config.h is sed'd
 	@# in the Makefile rule below to point RUBY_SETJMP /
 	@# RUBY_LONGJMP at our symbols.
-	$(CC) $(TARGETFLAGS) -c ${PWD}/ruby19/mkxp_setjmp_arm64.S \
+	$(CC) $(TARGETFLAGS) -c $(SOURCES)/ruby19/mkxp_setjmp_arm64.S \
 		-o $(SOURCES)/ruby19/mkxp_setjmp_arm64.o
 	$(AR) rcs $(LIBDIR)/libruby19-static.a $(SOURCES)/ruby19/mkxp_setjmp_arm64.o
 	$(RANLIB) $(LIBDIR)/libruby19-static.a
@@ -843,7 +843,7 @@ $(LIBDIR)/libruby19-static.a: $(SOURCES)/ruby19/Makefile
 		done; \
 	done; \
 	$(CC) $$EXTCFLAGS \
-		-c ${PWD}/ruby19/extinit.c \
+		-c $(CURDIR)/ruby19/extinit.c \
 		-o $(SOURCES)/ruby19/extinit.o; \
 	OBJ_FILES="$(SOURCES)/ruby19/extinit.o $$OBJ_FILES"; \
 	$(AR) rcs $(LIBDIR)/libruby19-ext.a $$OBJ_FILES; \
@@ -932,7 +932,7 @@ $(LIBDIR)/libruby18-static.a: $(SOURCES)/ruby18/Makefile
 	@# fails. The asm replacement saves/restores LR raw - no PAC.
 	@# config.h is patched (in ios.patch) to point RUBY_SETJMP /
 	@# RUBY_LONGJMP at our symbols.
-	$(CC) $(TARGETFLAGS) -c ${PWD}/ruby18/mkxp_setjmp_arm64.S \
+	$(CC) $(TARGETFLAGS) -c $(SOURCES)/ruby18/mkxp_setjmp_arm64.S \
 		-o $(SOURCES)/ruby18/mkxp_setjmp_arm64.o
 	$(AR) rcs $(LIBDIR)/libruby18-static.a $(SOURCES)/ruby18/mkxp_setjmp_arm64.o
 	$(RANLIB) $(LIBDIR)/libruby18-static.a
@@ -950,7 +950,7 @@ $(LIBDIR)/libruby18-static.a: $(SOURCES)/ruby18/Makefile
 		done; \
 	done; \
 	$(CC) $$EXTCFLAGS \
-		-c ${PWD}/ruby18/extinit.c \
+		-c $(SOURCES)/ruby18/extinit.c \
 		-o $(SOURCES)/ruby18/extinit.o; \
 	OBJ_FILES="$(SOURCES)/ruby18/extinit.o $$OBJ_FILES"; \
 	$(AR) rcs $(LIBDIR)/libruby18-ext.a $$OBJ_FILES; \
