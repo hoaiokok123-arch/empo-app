@@ -31,7 +31,7 @@
           "localizedDescription": "### Bug Fixes\n\n- Register GitInfo in xcodegen and update mkxp for Ruby 1.8 boot ([`cac317b`](https://github.com/mateo-m/empo-app/commit/cac317b609083774b527988ead1c83a6f1dec52e))",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.5/Empo-0.2.5-unsigned.ipa",
           "size": 16315376,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         },
         {
           "version": "0.2.4",
@@ -40,7 +40,7 @@
           "localizedDescription": "### Bug Fixes\n\n- Harden device deps pipeline and error alert handling ([`40d1a4c`](https://github.com/mateo-m/empo-app/commit/40d1a4c1299f51d807481520364e0e34dc728229))\n- Patch Ruby 1.8 cross-compile fake template ([`ab208a3`](https://github.com/mateo-m/empo-app/commit/ab208a38f24cdfb33917696e75675282a3ba8814))\n- Fix Ruby 1.8 cross-compile on modern macOS hosts ([`c6f7bbc`](https://github.com/mateo-m/empo-app/commit/c6f7bbc8e24a1d04e741c7ebda3f70820e6cb3ab))\n- Point Ruby 3.1 openssl ext at device OpenSSL ([`54b0fca`](https://github.com/mateo-m/empo-app/commit/54b0fcae3dab078e9b420abf11f1d1d6d8374c9b))",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.4-r1/Empo-0.2.4-unsigned.ipa",
           "size": 20856066,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         },
         {
           "version": "0.2.3",
@@ -49,7 +49,7 @@
           "localizedDescription": "### Bug Fixes\n\n- Cache compatibility auto-detect and re-sniff on reset ([`0bcb3f5`](https://github.com/mateo-m/empo-app/commit/0bcb3f56bc8075611c37796cf91e5d95e3b02e27))\n- Clean up failed imports and improve import UX ([`90e8622`](https://github.com/mateo-m/empo-app/commit/90e8622d2d90885e64b8007ee35312b7d191b12e))\n- Improve update banner dismiss and interactions ([`c2fa359`](https://github.com/mateo-m/empo-app/commit/c2fa359d5c3df7017bbab2934bf298cde8ac7244))",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.3-r1/Empo-0.2.3-unsigned.ipa",
           "size": 19673980,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         },
         {
           "version": "0.2.2",
@@ -58,7 +58,7 @@
           "localizedDescription": "### Bug Fixes\n\n- Update mkxp for exact-path bitmap resolution ([`f987a76`](https://github.com/mateo-m/empo-app/commit/f987a7678802c189d6e90caa70a3a1c922329043))\n\n### Features\n\n- Check at launch and add manual refresh control ([`37f70ee`](https://github.com/mateo-m/empo-app/commit/37f70eed3537bafa8aca4caeaaadeb8c44dfba18))\n\n### Release\n\n- Sync altstore source in release script ([`0ebe322`](https://github.com/mateo-m/empo-app/commit/0ebe3222261b02e84a09b1a5d5d44b49e2665ab2))",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.2-r1/Empo-0.2.2-unsigned.ipa",
           "size": 19663791,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         },
         {
           "version": "0.2.1",
@@ -67,7 +67,7 @@
           "localizedDescription": "### Bug Fixes\n\n- Update mkxp for Flux battle start ([`bc83a42`](https://github.com/mateo-m/empo-app/commit/bc83a425563b1f5005e7349e1c1cbb9670bfd1dc))\n- Migrate user data and refresh ruby auto-detect ([`abcc86e`](https://github.com/mateo-m/empo-app/commit/abcc86e7301a2e7d3085acafc1a71d9c9ab6dbda))\n\n### Release\n\n- Stop staging generated xcodeproj ([`8f692da`](https://github.com/mateo-m/empo-app/commit/8f692dae1f0ccb76cacdf0993320efbebb19e13e))\n- Source release notes from changelog ([`721f222`](https://github.com/mateo-m/empo-app/commit/721f222ec47d00588b80ee75f4a9f6068b9db28f))\n- Build ipa from clean release commit ([`57c17bb`](https://github.com/mateo-m/empo-app/commit/57c17bb816dadc6edd7e9152b0d1e3235a3805ff))",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.1/Empo-0.2.1-unsigned.ipa",
           "size": 19653517,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         },
         {
           "version": "0.2.0",
@@ -76,7 +76,7 @@
           "localizedDescription": "### Bug Fixes\n\n- Handle pokemon unicode assets and optional web probes ([`16e1679`](https://github.com/mateo-m/empo-app/commit/16e1679a079c2c89a9575efab9f18035c232776e))\n- Preserve utf-8 script encodings for pokemon ([`34d3669`](https://github.com/mateo-m/empo-app/commit/34d36698e6f75e10f29af13b9fb262d1594b149a))\n- Avoid Ruby 3 false-positives on legacy RGSS scripts ([`30acf38`](https://github.com/mateo-m/empo-app/commit/30acf383a52d91a4d645769d841a6f36693de676))\n- Update mkxp for case-insensitive asset existence checks ([`2ff9cde`](https://github.com/mateo-m/empo-app/commit/2ff9cdee72c94bde5f519304056b6a8ef7b3eb00))\n- Make Ruby file access case-insensitive on iOS ([`c0384f5`](https://github.com/mateo-m/empo-app/commit/c0384f500c275230ce335a74ceaa47a87c1640eb))\n- Move casefold filesystem fallback into native bindings ([`a496d00`](https://github.com/mateo-m/empo-app/commit/a496d00c86049b8ecf929012515aef6d2ce0cfcd))\n- Force archive choice paths to use monospaced text ([`2203675`](https://github.com/mateo-m/empo-app/commit/22036759e8cfab33a303df216072b326866bc02e))\n- Update mkxp for pokemon runtime compatibility ([`8f17270`](https://github.com/mateo-m/empo-app/commit/8f17270dee7b80d0a37658195be1cc167aec16e5))\n- Update mkxp after default-branch integration ([`4152d36`](https://github.com/mateo-m/empo-app/commit/4152d368567844e07fc70f97863a76e8da38f952))\n- Repoint mkxp after branch split ([`9a8df9b`](https://github.com/mateo-m/empo-app/commit/9a8df9bd78d25e3fbb9932c8f24eb4d43494ff30))\n\n\n### CI\n\n- Opt into node 24 for js actions to silence node 20 deprecation ([`afcfba1`](https://github.com/mateo-m/empo-app/commit/afcfba167f9381067b1058abe887c38f76b7d2b9))\n- Sync AltStore source from GitHub releases ([`45e9dca`](https://github.com/mateo-m/empo-app/commit/45e9dcacb480948ecc056f9396e47f69e73a7d12))\n- Notify Discord on published releases ([`ff68206`](https://github.com/mateo-m/empo-app/commit/ff68206adf53204cfbe9234688e0e6304d0d308b))\n\n\n### Chores\n\n- Add discord invite link ([`5243fb2`](https://github.com/mateo-m/empo-app/commit/5243fb224a9d1790ee16d489b693292418951dc9))\n- Update git ignore ([`dc3b2d2`](https://github.com/mateo-m/empo-app/commit/dc3b2d2d8ca71d3140b19438a70b6c123a586e54))\n- Ignore root object files ([`fd9d312`](https://github.com/mateo-m/empo-app/commit/fd9d312a60a6f7e351c613df4d92de27af82123e))\n- Adopt lefthook guardrails ([`3e3bd11`](https://github.com/mateo-m/empo-app/commit/3e3bd11b80167d41c5341c174fd90b4a3f0f5920))\n\n\n### Documentation\n\n- Document Graphics.delta timing for Vanguard ([`a310a2f`](https://github.com/mateo-m/empo-app/commit/a310a2fb637bbc0074ae149d69fdf63ac0337773))\n- Add branch protection guidance ([`d156ca7`](https://github.com/mateo-m/empo-app/commit/d156ca7a44cb21840e925ffc54cda7ad96453351))\n- Drop branch protection guidance ([`122c477`](https://github.com/mateo-m/empo-app/commit/122c47739d973746e855b68c08c864d441166174))\n\n\n### Features\n\n- Add pre-commit lint + format gated by file type ([`9c7efa5`](https://github.com/mateo-m/empo-app/commit/9c7efa5d3b91357b7f657114f7b3dcc6f759a5fd))\n- Move archive workflow into controller ([`11a7349`](https://github.com/mateo-m/empo-app/commit/11a7349f4c68721156c153905f80c745baaa140c))\n- Share update status banner across settings and library ([`f3775b3`](https://github.com/mateo-m/empo-app/commit/f3775b36e0365d76d331b4ceb5f7a7f8f50edf1a))\n\n\n### Release\n\n- Auto-update altstore-source.json with new ipa size + version ([`c95955c`](https://github.com/mateo-m/empo-app/commit/c95955c4726d14ea8bfa98f2a3b80f4173dbaa10))\n- Accept major/minor/patch bump arg, derive version from latest tag ([`6046214`](https://github.com/mateo-m/empo-app/commit/604621446cfb092be806e3ecc91d1cf3e2e26543))\n- Track changelog and generate release notes ([`85f3347`](https://github.com/mateo-m/empo-app/commit/85f334739966a69a3595b1609fe367bd375e59d4))\n\n\n### UI\n\n- Fix swift-format + markdownlint violations to unblock ci ([`5ab1b3d`](https://github.com/mateo-m/empo-app/commit/5ab1b3d9cc0e541231d30c8800af35df46c78c36))\n- Fix yamllint warnings via inline rule disables + folded warning_cflags ([`11f542b`](https://github.com/mateo-m/empo-app/commit/11f542b522b12d31290407fa59374d4936b5b97d))",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.2.0/Empo-0.2.0-unsigned.ipa",
           "size": 19648920,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         },
         {
           "version": "0.1.0",
@@ -85,7 +85,7 @@
           "localizedDescription": "First public build.",
           "downloadURL": "https://github.com/mateo-m/empo-app/releases/download/v0.1.0/Empo-0.1.0-unsigned.ipa",
           "size": 15016367,
-          "minOSVersion": "26.0"
+          "minOSVersion": "15.4"
         }
       ],
       "appPermissions": {
