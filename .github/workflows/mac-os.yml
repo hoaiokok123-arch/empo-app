@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          submodules: false
+          submodules: recursive
           fetch-depth: 0
 
       - name: Initialize submodules manually
@@ -40,8 +40,9 @@ jobs:
           fi
 
           # Ensure SDL2_image is present (some builds expect this)
-          if [ ! -d ios/Dependencies/sources/sdl2_image ]; then
-            git clone --depth 1 https://github.com/libsdl-org/SDL_image ios/Dependencies/sources/sdl2_image || true
+          if [ ! -d ios/Dependencies/sources/sdl2_image ] || ! git -C ios/Dependencies/sources/sdl2_image rev-parse --verify HEAD >/dev/null 2>&1; then
+            rm -rf ios/Dependencies/sources/sdl2_image || true
+            git clone --depth 1 --branch mkxp-z https://github.com/mkxp-z/SDL_image ios/Dependencies/sources/sdl2_image || true
           fi
 
           git submodule status --recursive || true
