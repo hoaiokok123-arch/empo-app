@@ -9,12 +9,13 @@ jobs:
   build-simulator:
     runs-on: macos-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
-      - name: Install Homebrew deps
+      - name: Install Homebrew dependencies
         run: |
           brew update || true
           brew install bun xcodegen autoconf automake libtool cmake pkg-config git-cliff || true
@@ -26,7 +27,7 @@ jobs:
 
       - name: Build simulator native deps
         run: |
-          make -C ios/Dependencies -f iphonesimulator.make deps-core || true
+          make -C ios/Dependencies -f iphonesimulator.make deps-core
 
       - name: Generate Xcode project
         run: |
