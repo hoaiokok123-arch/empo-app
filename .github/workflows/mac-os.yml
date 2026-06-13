@@ -1,0 +1,43 @@
+name: macOS iOS Build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+jobs:
+  build-simulator:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Homebrew deps
+        run: |
+          brew update || true
+          brew install bun xcodegen autoconf automake libtool cmake pkg-config git-cliff || true
+
+      - name: Install JS hooks (bun)
+        run: |
+          if [ -f package.json ]; then bun install || true; fi
+          if [ -d mkxp-z-apple-mobile ] && [ -f mkxp-z-apple-mobile/package.json ]; then (cd mkxp-z-apple-mobile && bun install) || true; fi
+
+      - name: Build simulator native deps
+        run: |
+          make -C ios/Dependencies -f iphonesimulator.make deps-core || true
+
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate --spec ios/Empo/project.yml --project ios/Empo --quiet
+
+      - name: Build Empo (simulator)
+        run: |
+          xcodebuild -project ios/Empo/Empo.xcodeproj -target Empo -sdk iphonesimulator -arch arm64 -configuration Debug build CODE_SIGNING_ALLOWED=NO | grep -E "^(Build|error:|warning: |CompileSwift|Ld )" || true
+
+      - name: Upload Empo.app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Empo.app
+          path: ios/Empo/build/Debug-iphonesimulator/Empo.app
