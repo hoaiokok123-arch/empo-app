@@ -17,13 +17,16 @@ jobs:
 
       - name: Initialize submodules manually
         run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git config --global url."https://github.com/".insteadOf ssh://git@github.com/
           git submodule sync --recursive
-          git submodule update --init --recursive --force || true
+          git config --file .gitmodules submodule.mkxp-z-apple-mobile.url https://github.com/mateo-m/mkxp-z-apple-mobile.git || true
+          git submodule sync --recursive
+          git submodule update --init --recursive --force
           if [ -d ios/Dependencies/sources/sdl2 ]; then
-            git -C ios/Dependencies/sources/sdl2 fetch --unshallow origin || true
+            git -C ios/Dependencies/sources/sdl2 fetch --all || true
             git -C ios/Dependencies/sources/sdl2 fetch origin mkxp-z-2.28.1 || true
           fi
-          git submodule update --init --recursive --force
 
       - name: Install Homebrew dependencies
         run: |
