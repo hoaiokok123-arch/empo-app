@@ -35,7 +35,7 @@
 	ignore = dirty
 [submodule "mkxp-z-apple-mobile"]
 	path = mkxp-z-apple-mobile
-	url = git@github.com:mateo-m/mkxp-z-apple-mobile
+	url = https://github.com/mateo-m/mkxp-z-apple-mobile.git
 	branch = dev
 [submodule "ios/Dependencies/sources/openal-soft"]
 	path = ios/Dependencies/sources/openal-soft
