@@ -2,7 +2,7 @@ name: Empo
 options:
   bundleIdPrefix: sh.mateo
   deploymentTarget:
-    iOS: "26.0"
+    iOS: "15.4"
   createIntermediateGroups: true
 settings:
   base:
